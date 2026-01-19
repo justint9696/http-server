@@ -1,0 +1,12 @@
+bin/
+build/
+lib/
+
+*.a
+*.d
+*.o
+*.so
+*.out
+*.log
+*.txt
+*.bak
