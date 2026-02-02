@@ -26,8 +26,8 @@
 enum _log_level {
     LL_DEBUG = 0,
     LL_INFO,
-    LL_ERROR,
     LL_WARN,
+    LL_ERROR,
     LL_FATAL,
     LL_NONE,
 };
@@ -39,9 +39,9 @@ int32_t
 logger_set_file(const char *fname, int32_t append);
 
 int32_t
-logger_set_level(int32_t stdout_level, int32_t fp_level);
+logger_set_level(int32_t stdout_level, int32_t file_level);
 
 int32_t
-logger_close_fp(void);
+logger_close_file(void);
 
 #endif // _HTTP_LOGGER_H
