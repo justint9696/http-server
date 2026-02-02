@@ -9,7 +9,9 @@ CFLAGS = -std=c99 -Wall -Wextra -Werror -Wno-unused-parameter $(INCDIRS)
 LDFLAGS = $(LIBDIRS) $(LDDIRS)
 
 SRCS = http-server/logger.c \
-       http-server/server.c
+       http-server/server.c \
+       http-server/client.c
+
 OBJS = $(patsubst %, build/%, $(SRCS:.c=.o))
 DEPS = $(OBJS:.o=.d)
 

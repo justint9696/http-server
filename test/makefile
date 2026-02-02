@@ -7,7 +7,8 @@ LDDIRS = -lhttp-server -lpthread
 CFLAGS = -std=c99 -Wall -Wextra -Werror -Wno-unused-parameter $(INCDIRS)
 LDFLAGS = $(LIBDIRS) $(LDDIRS) -Wl,-rpath=lib
 
-SRCS = test/logger.c
+SRCS = test/logger.c \
+	   test/server.c
 
 OBJS = $(patsubst %, bin/%, $(SRCS:.c=.test.out))
 

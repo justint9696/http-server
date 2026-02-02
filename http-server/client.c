@@ -4,7 +4,6 @@
 
 #include <errno.h>
 #include <netinet/in.h>
-#include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -19,9 +18,11 @@ client_init(client_t *cl, int32_t portno) {
         return HTTP_ERR;
     }
 
+    memset(&addr, 0, sizeof(addr));
+
     addr.sin_family = AF_INET;
     addr.sin_port = htons(portno);
-    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 
     if (connect(cl->sockfd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
         LOG_ERROR("connect: %s\n", strerror(errno));
@@ -41,6 +42,10 @@ client_destroy(client_t *cl) {
 
 int32_t
 client_send(client_t *cl, packet_t *pkt) {
+    if (send(cl->sockfd, (void *)pkt->data, pkt->len, 0) == -1) {
+        LOG_ERROR("send: %s\n", strerror(errno));
+        return HTTP_ERR;
+    }
     return HTTP_OK;
 }
 
