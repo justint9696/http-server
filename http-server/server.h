@@ -34,9 +34,12 @@ int32_t
 server_destroy(server_t *server);
 
 int32_t
-server_listen(server_t *server, int *fd, packet_t *pkt);
+server_accept(server_t *server, int *fd);
 
 int32_t
 server_send(server_t *server, int fd, packet_t *pkt);
+
+int32_t
+server_recv(server_t *server, int fd, packet_t *pkt);
 
 #endif // _SERVER_H

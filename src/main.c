@@ -31,13 +31,6 @@ typedef struct {
 static const char *errstr =
 "Usage: %s --port p --module m [OPTIONS]...\n";
 
-static struct option long_options[] = {
-    { "port", required_argument, 0, 'p' },
-    { "verbose", no_argument, 0, 'v' },
-    { "module", required_argument, 0, 'm' },
-    { 0, 0, 0, 0 }
-};
-
 static int
 print_usage(state_t *state);
 
@@ -75,12 +68,16 @@ main(int argc, char **argv) {
     }
 
     while (ret) {
-        if (!(ret = server_listen(&state.server, &state.clientfd, &state.pkt))) {
+        if (!(ret = server_accept(&state.server, &state.clientfd))) {
             LOG_ERROR("Failed to connect to incoming client\n");
-            ret = ERR;
         } 
 
-        LOG_INFO("Server says:\n%s\n", state.pkt.data);
+        if (ret &&
+                !(ret = server_recv(&state.server, state.clientfd, &state.pkt))) {
+            LOG_ERROR("Failed to receive data from client.\n");
+        }
+
+        LOG_INFO("Client says:\n%s\n", state.pkt.data);
     }
 
 err:
@@ -103,6 +100,14 @@ parse_options(state_t *state, int argc, char **argv) {
     int ret = OK;
     int opt;
 
+    static struct option long_options[] = {
+        { "port", required_argument, 0, 'p' },
+        { "module", required_argument, 0, 'm' },
+        { "verbose", no_argument, 0, 'v' },
+        { "help", no_argument, 0, 'h' },
+        { 0, 0, 0, 0 }
+    };
+
     while (ret && (opt = getopt_long(
                     argc, argv, ":p:m:vh", long_options, NULL)) != -1) {
         switch (opt) {
@@ -119,7 +124,7 @@ parse_options(state_t *state, int argc, char **argv) {
                 print_usage(state);
                 ret = ERR;
                 break;
-            default: 
+            case '?': 
                 fprintf(stderr, "Unknown parameter `%c`\n", opt);
                 break;
         }
@@ -131,7 +136,7 @@ parse_options(state_t *state, int argc, char **argv) {
     }
 
     if (ret && !state->module) {
-        fprintf(stderr, "Missing require parameter `module`\n");
+        fprintf(stderr, "Missing required parameter `module`\n");
         ret = ERR;
     }
 

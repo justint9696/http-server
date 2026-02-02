@@ -2,14 +2,12 @@
 
 #include <libgen.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
-
-#define SERVER_PORT     3000
-#define LOG_FILE        "logs/unit_tests.log"
 
 const char *errstr =
 "Usage: %s [TEST]...\n";
@@ -24,7 +22,6 @@ int
 main(int argc, char **argv) {
     int i;
     int ret;
-    FILE *fp;
     state_t state;
     char msg[128];
     time_t start;
@@ -38,17 +35,17 @@ main(int argc, char **argv) {
     memset(&state, 0, sizeof(state_t));
 
     // create and truncate the log file
-    if (!(fp = fopen(LOG_FILE, "w+"))) {
-        perror("fopen");
+    if (!(ret = logger_set_file(LOG_FILE, HTTP_FALSE))) {
         return UT_FAILURE;
     }
 
-    // initialize server
-    if (!(ret = server_init(&state.sv, SERVER_PORT))) {
-        return UT_FAILURE;
-    }
+    logger_set_level(LL_NONE, LL_DEBUG);
 
     pthread_create(&state.th, NULL, server_thread, (void *)&state);
+
+    // wait for server initialization
+    while (!state.rdy)
+        pthread_cond_wait(&state.cd, &state.mtx);
 
     printf("\nUnit test results...\n");
     time(&start);
@@ -68,7 +65,6 @@ main(int argc, char **argv) {
 
     // cleanup
     server_destroy(&state.sv);
-    fclose(fp);
 
     return UT_SUCCESS;
 }
@@ -76,35 +72,32 @@ main(int argc, char **argv) {
 static int
 run_test(const char *pname, state_t *state) {
     int wstatus;
-    int ret = UT_SUCCESS;
     pid_t pid;
 
     switch ((pid = fork())) {
         case -1:
             perror("fork");
-            return -1;
+            return UT_FAILURE;
         case 0:
-            if (execl(pname, pname, LOG_FILE, NULL) == -1) {
-                perror("execl");
-                return UT_FAILURE;
-            }
-            break;
+            execl(pname, pname, NULL);
+            perror("execl");
+            exit(UT_FAILURE);
         default:
             if (waitpid(pid, &wstatus, 0) == -1) {
                 perror("waitpid");
                 return UT_FAILURE;
             }
 
-            if (WIFEXITED(wstatus)) {
-                ret = WEXITSTATUS(wstatus);
-            } else if (WIFSIGNALED(wstatus)) {
-                ret = WTERMSIG(wstatus);
-            }
+            if (WIFEXITED(wstatus))
+                return WEXITSTATUS(wstatus);
+            
+            if (WIFSIGNALED(wstatus))
+                return 128 + WTERMSIG(wstatus);
 
             break;
     }
     
-    return ret;
+    return UT_FAILURE;
 }
 
 static void *
@@ -114,9 +107,27 @@ server_thread(void *args) {
     state_t *state;
 
     state = (state_t *)args;
-    if (!server_listen(&state->sv, &fd, &pkt)) {
-        fprintf(stderr, "Failed to connect to incoming connection\n");
-        return NULL;
+    pthread_mutex_lock(&state->mtx);
+
+    (void)server_init(&state->sv, SERVER_PORT);
+    state->rdy = HTTP_TRUE;
+
+    pthread_cond_signal(&state->cd);
+    pthread_mutex_unlock(&state->mtx);
+
+    while (1) {
+        LOG_INFO("Server is ready.\n");
+        if (!server_accept(&state->sv, &fd)) {
+            LOG_ERROR("Failed to connect to incoming connection\n");
+            continue;
+        }
+
+        if (!server_recv(&state->sv, fd, &pkt)) {
+            LOG_ERROR("Hey there\n");
+            continue;
+        }
+
+        LOG_INFO("Client says: `%s`\n", (char *)pkt.data);
     }
 
     return NULL;

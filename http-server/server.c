@@ -29,6 +29,7 @@ server_init(server_t *server, int32_t port) {
         return HTTP_ERR;
     }
 
+    LOG_INFO("Waiting for connection on port %d...\n", server->port);
     if (listen(server->sockfd, 1) == -1) {
         LOG_ERROR("listen: %s\n", strerror(errno));
         close(server->sockfd);
@@ -45,19 +46,13 @@ server_destroy(server_t *server) {
 }
 
 int32_t
-server_listen(server_t *server, int *fd, packet_t *pkt) {
-    LOG_DEBUG("Waiting for connection on port %d...\n", server->port);
+server_accept(server_t *server, int *fd) {
     if ((*fd = accept(server->sockfd, NULL, NULL)) == -1) {
         LOG_ERROR("accept: %s\n", strerror(errno));
         return HTTP_ERR;
     }
 
     LOG_INFO("Client %d connected.\n", *fd);
-    if ((pkt->len = recv(*fd, &pkt->data, PKT_LEN, 0)) == -1) {
-        LOG_ERROR("recv: %s\n", strerror(errno));
-        return HTTP_ERR;
-    }
-
     return HTTP_OK;
 }
 
@@ -70,5 +65,15 @@ server_send(server_t *server, int fd, packet_t *pkt) {
     }
 
     close(fd);
+    return HTTP_OK;
+}
+
+int32_t
+server_recv(server_t *server, int fd, packet_t *pkt) {
+    if ((pkt->len = recv(fd, &pkt->data, PKT_LEN, 0)) == -1) {
+        LOG_ERROR("recv: %s\n", strerror(errno));
+        return HTTP_ERR;
+    }
+
     return HTTP_OK;
 }
