@@ -25,7 +25,7 @@ typedef struct {
     int32_t     clientfd;
     int32_t     port;
     server_t    server;
-    packet_t    pkt;
+    uint8_t     data[1024];
 } state_t;
 
 static const char *errstr =
@@ -61,7 +61,7 @@ main(int argc, char **argv) {
     }
 
     logger_set_level(LL_WARN, LL_DEBUG);
-    if (!(ret = server_init(&state.server, state.port))) {
+    if (!(ret = server_init(&state.server, state.port, NULL))) {
         LOG_ERROR("Failed to initialize server\n");
         ret = ERR;
         goto err;
@@ -72,12 +72,12 @@ main(int argc, char **argv) {
             LOG_ERROR("Failed to connect to incoming client\n");
         } 
 
-        if (ret &&
-                !(ret = server_recv(&state.server, state.clientfd, &state.pkt))) {
+        if (ret && !(ret = server_recv(&state.server, state.clientfd,
+                                        state.data, sizeof(state.data)))) {
             LOG_ERROR("Failed to receive data from client.\n");
         }
 
-        LOG_INFO("Client says:\n%s\n", state.pkt.data);
+        LOG_INFO("Client says:\n%.*s\n", ret, (char *)state.data);
     }
 
 err:

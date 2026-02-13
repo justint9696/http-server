@@ -26,5 +26,5 @@ After a successful compilation, the runtime application will be located in `bin`
 If you're interested in browsing the code, the directory structure is as follows:
 1. `http-server` - the actual server code
 2. `public` - the web server modules
-3. `src` - the runtime application for the server
+3. `runtime` - the runtime application for the server
 4. `test` - all the unit tests for the server code

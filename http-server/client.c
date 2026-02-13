@@ -41,8 +41,9 @@ client_destroy(client_t *cl) {
 }
 
 int32_t
-client_send(client_t *cl, packet_t *pkt) {
-    if (send(cl->sockfd, (void *)pkt->data, pkt->len, 0) == -1) {
+client_send(client_t *cl, const void *data, int32_t len) {
+    LOG_DEBUG("Sending %d bytes to server\n");
+    if (send(cl->sockfd, data, len, 0) == -1) {
         LOG_ERROR("send: %s\n", strerror(errno));
         return HTTP_ERR;
     }
@@ -50,13 +51,13 @@ client_send(client_t *cl, packet_t *pkt) {
 }
 
 int32_t
-client_recv(client_t *cl, packet_t *pkt) {
-    if (recv(cl->sockfd, (void *)pkt->data, sizeof(pkt->data), 0) == -1) {
+client_recv(client_t *cl, void *data, int32_t *len) {
+    if (recv(cl->sockfd, data, *len, 0) == -1) {
         LOG_ERROR("recv: %s\n", strerror(errno));
         return HTTP_ERR;
     }
 
-    pkt->len = strlen((char *)pkt->data);
+    *len = strlen((char *)data);
 
     return HTTP_OK;
 }

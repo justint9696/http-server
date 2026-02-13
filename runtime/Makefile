@@ -1,13 +1,13 @@
 CC = gcc
 
-INCDIRS = -Ihttp-server
+INCDIRS = -Iinclude
 LIBDIRS = -Llib
-LDDIRS = -lhttp-server
+LDLIBS = -lhttp-server
 
 CFLAGS = -std=c99 -Wall -Wextra -Werror -Wno-unused-parameter $(INCDIRS)
-LDFLAGS = $(LIBDIRS) $(LDDIRS) -Wl,-rpath=lib
+LDFLAGS = $(LIBDIRS) $(LDLIBS) -Wl,-rpath=lib
 
-SRCS = src/main.c
+SRCS = runtime/main.c
 OBJS = $(patsubst %, build/%, $(SRCS:.c=.o))
 DEPS = $(OBJS:.o=.d)
 
@@ -19,7 +19,7 @@ else
 CFLAGS += -Og -g -D_DEBUG
 endif
 
-.PHONY: all release
+.PHONY: all clean
 
 all: $(TARGET)
 
@@ -27,7 +27,7 @@ $(TARGET): $(OBJS)
 	@mkdir -p $(dir $@)
 	$(CC) -o $@ $^ $(LDFLAGS)
 
-build/src/%.o: src/%.c
+build/runtime/%.o: runtime/%.c
 	@mkdir -p $(dir $@)
 	$(CC) -o $@ -c $< $(CFLAGS) -MMD
 

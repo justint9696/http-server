@@ -1,12 +1,12 @@
 CC = gcc
 LD = gcc
 
-INCDIRS = -Ihttp-server
+INCDIRS = -Iinclude
 LIBDIRS =
-LDDIRS =
+LDLIBS =
 
 CFLAGS = -std=c99 -Wall -Wextra -Werror -Wno-unused-parameter $(INCDIRS)
-LDFLAGS = $(LIBDIRS) $(LDDIRS)
+LDFLAGS = $(LIBDIRS) $(LDLIBS)
 
 SRCS = http-server/logger.c \
        http-server/server.c \

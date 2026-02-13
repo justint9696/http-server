@@ -1,27 +1,26 @@
 #ifndef _HTTP_LOGGER_H
 #define _HTTP_LOGGER_H
 
-#include <stdio.h>
 #include <stdint.h>
 
 #ifdef _DEBUG
 #define LOG_DEBUG(_fmt, ...) \
-    _log_intern(LL_DEBUG, (_fmt), ##__VA_ARGS__)
+    _log_intern(LL_DEBUG, _fmt, ##__VA_ARGS__)
 #else
 #define LOG_DEBUG(_fmt, ...)
 #endif // _DEBUG
 
 #define LOG_INFO(_fmt, ...) \
-    _log_intern(LL_INFO, (_fmt), ##__VA_ARGS__)
+    _log_intern(LL_INFO, _fmt, ##__VA_ARGS__)
 
 #define LOG_WARN(_fmt, ...) \
-    _log_intern(LL_WARN, (_fmt), ##__VA_ARGS__)
+    _log_intern(LL_WARN, _fmt, ##__VA_ARGS__)
 
 #define LOG_ERROR(_fmt, ...) \
-    _log_intern(LL_ERROR, (_fmt), ##__VA_ARGS__)
+    _log_intern(LL_ERROR, _fmt, ##__VA_ARGS__)
 
 #define LOG_FATAL(_fmt, ...) \
-    _log_intern(LL_FATAL, (_fmt), ##__VA_ARGS__)
+    _log_intern(LL_FATAL, _fmt, ##__VA_ARGS__)
 
 enum _log_level {
     LL_DEBUG = 0,

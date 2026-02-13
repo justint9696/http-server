@@ -1,6 +1,6 @@
 CC = gcc
 
-INCDIRS = -Ihttp-server
+INCDIRS = -Iinclude
 LIBDIRS = -Llib
 LDDIRS = -lhttp-server -lpthread
 
@@ -24,9 +24,13 @@ endif
 
 all: $(TARGET)
 	
-$(TARGET): $(OBJS)
+$(TARGET): build/test/unit_tester.o $(OBJS)
 	@mkdir -p $(dir $@)
-	$(CC) -o $@ test/unit_tester.c $(CFLAGS) $(LDFLAGS)
+	$(CC) -o $@ $< $(CFLAGS) $(LDFLAGS)
+
+build/test/%.o: test/%.c
+	@mkdir -p $(dir $@)
+	$(CC) -o $@ -c $< $(CFLAGS)
 
 bin/test/%.test.out: test/%.c
 	@mkdir -p $(dir $@)

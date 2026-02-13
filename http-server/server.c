@@ -4,15 +4,20 @@
 
 #include <errno.h>
 #include <netinet/in.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
 int32_t
-server_init(server_t *server, int32_t port) {
+server_init(server_t *server, int32_t port, const char *dirname) {
     struct sockaddr_in addr;
 
     server->port = port;
+
+    if (dirname) {
+        strcpy(server->dirname, dirname);
+    }
 
     if ((server->sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         LOG_ERROR("server->sockfd: %s\n", strerror(errno));
@@ -56,10 +61,9 @@ server_accept(server_t *server, int *fd) {
     return HTTP_OK;
 }
 
-// TODO: handle different packet types
 int32_t
-server_send(server_t *server, int fd, packet_t *pkt) {
-    if (send(fd, (void *)pkt->data, pkt->len, 0) == -1) {
+server_send(server_t *server, int fd, const void *data, int32_t len) {
+    if (send(fd, data, len, 0) == -1) {
         perror("send");
         return HTTP_ERR;
     }
@@ -69,11 +73,12 @@ server_send(server_t *server, int fd, packet_t *pkt) {
 }
 
 int32_t
-server_recv(server_t *server, int fd, packet_t *pkt) {
-    if ((pkt->len = recv(fd, &pkt->data, PKT_LEN, 0)) == -1) {
+server_recv(server_t *server, int fd, void *data, int32_t len) {
+    int32_t nread;
+    memset(data, 0, len);
+    if ((nread = recv(fd, data, len, 0)) == -1) {
         LOG_ERROR("recv: %s\n", strerror(errno));
-        return HTTP_ERR;
     }
 
-    return HTTP_OK;
+    return nread;
 }

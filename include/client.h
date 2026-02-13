@@ -15,9 +15,9 @@ int32_t
 client_destroy(client_t *cl);
 
 int32_t
-client_send(client_t *cl, packet_t *pkt);
+client_send(client_t *cl, const void *data, int32_t len);
 
 int32_t
-client_recv(client_t *cl, packet_t *pkt);
+client_recv(client_t *cl, void *data, int32_t *len);
 
 #endif // _CLIENT_H
