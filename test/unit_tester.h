@@ -16,26 +16,28 @@
 #define UT_FAILURE      1
 
 #define SERVER_PORT     3000
-#define LOG_FILE        "logs/unit_tests.log"
+#define SERVER_ROOT     "public"
+#define LOG_FILE        "logs/tests.log"
+#define LOG_LEVEL       LL_DEBUG
 
 
-typedef struct {
+typedef struct _ctx {
     int32_t             rdy;
     pthread_t           th;
     pthread_mutex_t     mtx;
     pthread_cond_t      cd;
     server_t            sv;
     client_t            cl;
-} state_t;
+} ctx_t;
 
 int
-log_init(const char *fname, int32_t stdout_level, int32_t fp_level) {
-    if (!logger_set_file(fname, HTTP_TRUE)) {
-        fprintf(stderr, "Error: Failed to create log file `%s`\n", fname);
+log_init() {
+    if (!logger_set_file(LOG_FILE, HTTP_TRUE)) {
+        fprintf(stderr, "Error: Failed to create log file `%s`\n", LOG_FILE);
         return UT_ERR;
     }
 
-    logger_set_level(stdout_level, fp_level);
+    logger_set_level(LL_NONE, LL_DEBUG);
 
     return UT_OK;
 }

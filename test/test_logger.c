@@ -3,7 +3,7 @@
 #include <stdio.h>
 
 int main(int argc, char **argv) {
-    if (!log_init(LOG_FILE, LL_NONE, LL_INFO)) {
+    if (!log_init()) {
         fprintf(stderr, "Error: Failed to create log file\n");
         return UT_FAILURE;
     }

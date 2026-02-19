@@ -6,9 +6,10 @@ int
 main(int argc, char **argv) {
     int ret;
     client_t cl;
-    packet_t pkt;
+    uint8_t data[1024];
+    int32_t len;
 
-    if (!(ret = log_init(LOG_FILE, LL_NONE, LL_DEBUG))) {
+    if (!(ret = log_init())) {
         fprintf(stderr, "Error: Failed to create log file\n");
         return UT_FAILURE;
     }
@@ -17,21 +18,19 @@ main(int argc, char **argv) {
         LOG_ERROR("Failed to initialize client\n");
     }
 
-    LOG_INFO("Client is ready.\n");
+    LOG_INFO("Client is ready\n");
 
-    memset(&pkt, 0, sizeof(pkt));
-    strcpy((char *)pkt.data, "Hello from client");
-    pkt.len = strlen((char *)pkt.data);
+    memset(data, 0, sizeof(data));
+    strcpy((char *)data, "Hello from client");
+    len = strlen((char *)data);
 
-    LOG_INFO("Sending `%s` to server.\n", (char *)pkt.data);
+    LOG_INFO("Sending `%s` to server\n", (char *)data);
 
-    if (ret && !(ret = client_send(&cl, &pkt))) {
+    if (ret && !(ret = client_send(&cl, data, len))) {
         LOG_ERROR("Failed to send packet\n");
     }
 
-    LOG_INFO("%d bytes sent.\n", pkt.len);
     client_destroy(&cl);
-
     logger_close_file();
 
     return ((ret) ? UT_SUCCESS : UT_FAILURE);

@@ -7,10 +7,10 @@ LDDIRS = -lhttp-server -lpthread
 CFLAGS = -std=c99 -Wall -Wextra -Werror -Wno-unused-parameter $(INCDIRS)
 LDFLAGS = $(LIBDIRS) $(LDDIRS) -Wl,-rpath=lib
 
-SRCS = test/logger.c \
-	   test/server.c
+SRCS = test/test_logger.c \
+	   test/test_server.c
 
-OBJS = $(patsubst %, bin/%, $(SRCS:.c=.test.out))
+OBJS = $(patsubst %, bin/%, $(SRCS:.c=.out))
 
 TARGET = bin/unit_tester
 
@@ -32,7 +32,7 @@ build/test/%.o: test/%.c
 	@mkdir -p $(dir $@)
 	$(CC) -o $@ -c $< $(CFLAGS)
 
-bin/test/%.test.out: test/%.c
+bin/test/%.out: test/%.c
 	@mkdir -p $(dir $@)
 	$(CC) -o $@ $< $(CFLAGS) $(LDFLAGS)
 
