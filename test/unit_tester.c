@@ -13,7 +13,7 @@ const char *errstr =
 "Usage: %s [TEST]...\n";
 
 static int
-run_test(const char *pname, state_t *state);
+run_test(const char *pname, ctx_t *ctx);
 
 static void *
 server_thread(void *args);
@@ -22,7 +22,7 @@ int
 main(int argc, char **argv) {
     int i;
     int ret;
-    state_t state;
+    ctx_t ctx;
     char msg[128];
     time_t start;
     time_t end;
@@ -32,7 +32,7 @@ main(int argc, char **argv) {
         return UT_SUCCESS;
     }
 
-    memset(&state, 0, sizeof(state_t));
+    memset(&ctx, 0, sizeof(ctx_t));
 
     // create and truncate the log file
     if (!(ret = logger_set_file(LOG_FILE, HTTP_FALSE))) {
@@ -41,36 +41,40 @@ main(int argc, char **argv) {
 
     logger_set_level(LL_NONE, LL_DEBUG);
 
-    pthread_create(&state.th, NULL, server_thread, (void *)&state);
+    pthread_create(&ctx.th, NULL, server_thread, (void *)&ctx);
 
     // wait for server initialization
-    while (!state.rdy)
-        pthread_cond_wait(&state.cd, &state.mtx);
+    while (!ctx.rdy) {
+        pthread_cond_wait(&ctx.cd, &ctx.mtx);
+    }
 
     printf("\nUnit test results...\n");
     time(&start);
     {
         for (i = 1; i < argc; i++) {
-            ret = run_test(argv[i], &state);
             snprintf(msg, sizeof(msg), "[%d/%d] Running %s",
                     i, argc - 1, basename(argv[i]));
-            printf("   %-32s [%s]\n", msg, ((ret == UT_SUCCESS) ? "OK" : "Fail"));
+            LOG_INFO("%s\n", msg);
+
+            ret = run_test(argv[i], &ctx);
+            printf("   %-32s [%s]\n",
+                    msg, ((ret == UT_SUCCESS) ? "OK" : "Fail"));
         }
     }
     time(&end);
     printf("\nDone (%.2lfs)\n", (end - start) / 1e+6);
 
     // kill the server thread
-    pthread_cancel(state.th);
+    pthread_cancel(ctx.th);
 
     // cleanup
-    server_destroy(&state.sv);
+    server_destroy(&ctx.sv);
 
     return UT_SUCCESS;
 }
 
 static int
-run_test(const char *pname, state_t *state) {
+run_test(const char *pname, ctx_t *ctx) {
     int wstatus;
     pid_t pid;
 
@@ -103,31 +107,60 @@ run_test(const char *pname, state_t *state) {
 static void *
 server_thread(void *args) {
     int fd;
-    packet_t pkt;
-    state_t *state;
+    uint8_t data[1024];
+    int32_t state;
+    int32_t ret = 0;
+    ctx_t *ctx = NULL;
+    http_t http;
 
-    state = (state_t *)args;
-    pthread_mutex_lock(&state->mtx);
+    ctx = (ctx_t *)args;
+    pthread_mutex_lock(&ctx->mtx);
 
-    (void)server_init(&state->sv, SERVER_PORT);
-    state->rdy = HTTP_TRUE;
+    (void)server_init(&ctx->sv, SERVER_PORT, SERVER_ROOT);
+    ctx->rdy = HTTP_TRUE;
 
-    pthread_cond_signal(&state->cd);
-    pthread_mutex_unlock(&state->mtx);
+    pthread_cond_signal(&ctx->cd);
+    pthread_mutex_unlock(&ctx->mtx);
+
+    enum { SV_QUIT = 0, SV_DEAD, SV_IDLE, SV_ALIVE };
+    state = SV_IDLE;
 
     while (1) {
-        LOG_INFO("Server is ready.\n");
-        if (!server_accept(&state->sv, &fd)) {
-            LOG_ERROR("Failed to connect to incoming connection\n");
-            continue;
-        }
+        switch (state) {
+            case SV_DEAD:
+                LOG_INFO("Closing connection\n");
+                close(fd);
+                state = SV_IDLE;
+                break;
+            case SV_IDLE:
+                LOG_INFO("Server is ready\n");
+                if (!server_accept(&ctx->sv, &fd)) {
+                    LOG_WARN("Failed to connect to client\n");
+                    continue;
+                }
 
-        if (!server_recv(&state->sv, fd, &pkt)) {
-            LOG_ERROR("Hey there\n");
-            continue;
-        }
+                state = SV_ALIVE;
+                break;
+            case SV_ALIVE:
+                if ((ret = server_recv(
+                                &ctx->sv, fd, data, sizeof(data))) == -1) {
+                    LOG_WARN("Failed to receive packet\n");
+                    break;
+                } else if (ret == 0) {
+                    LOG_INFO("Client %d disconnected\n", fd);
+                    state = SV_DEAD;
+                    break;
+                }
 
-        LOG_INFO("Client says: `%s`\n", (char *)pkt.data);
+                LOG_INFO("Server received %d bytes\n", ret);
+                if (!http_parse_message(&http, (char *)data, ret)) {
+                    LOG_WARN("Failed to parse client data\n");
+                    break;
+                }
+                break;
+            default:
+                return NULL;
+        }
     }
 
     return NULL;

@@ -4,11 +4,12 @@ INCDIRS = -Iinclude
 LIBDIRS = -Llib
 LDDIRS = -lhttp-server -lpthread
 
-CFLAGS = -std=c99 -Wall -Wextra -Werror -Wno-unused-parameter $(INCDIRS)
+CFLAGS = -std=c11 -Wall -Wextra -Werror -Wno-unused-parameter $(INCDIRS)
 LDFLAGS = $(LIBDIRS) $(LDDIRS) -Wl,-rpath=lib
 
 SRCS = test/test_logger.c \
-	   test/test_server.c
+	   test/test_server.c \
+	   test/test_http.c
 
 OBJS = $(patsubst %, bin/%, $(SRCS:.c=.out))
 
