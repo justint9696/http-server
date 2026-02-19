@@ -1,9 +1,13 @@
 #ifndef _SERVER_H
 #define _SERVER_H
 
-#include "http.h"
+#include "http/http.h"
 
 #include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
 
 typedef struct _server {
     int32_t     sockfd;
@@ -25,5 +29,9 @@ server_send(server_t *server, int fd, const void *data, int32_t len);
 
 int32_t
 server_recv(server_t *server, int fd, void *data, int32_t len);
+
+#ifdef __cplusplus
+}
+#endif // __cplusplus
 
 #endif // _SERVER_H

@@ -3,6 +3,10 @@
 
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
+
 #ifdef _DEBUG
 #define LOG_DEBUG(_fmt, ...) \
     _log_intern(LL_DEBUG, _fmt, ##__VA_ARGS__)
@@ -46,5 +50,9 @@ logger_set_level(int32_t stdout_level, int32_t file_level);
 
 int32_t
 logger_close_file(void);
+
+#ifdef __cplusplus
+}
+#endif // __cplusplus
 
 #endif // _HTTP_LOGGER_H

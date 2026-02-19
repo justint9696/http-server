@@ -1,7 +1,11 @@
 #ifndef _CLIENT_H
 #define _CLIENT_H
 
-#include "server.h"
+#include "http/server.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
 
 typedef struct _client {
     int32_t     sockfd;
@@ -19,5 +23,9 @@ client_send(client_t *cl, const void *data, int32_t len);
 
 int32_t
 client_recv(client_t *cl, void *data, int32_t *len);
+
+#ifdef __cplusplus
+}
+#endif // __cplusplus
 
 #endif // _CLIENT_H

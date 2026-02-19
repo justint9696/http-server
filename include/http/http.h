@@ -12,6 +12,10 @@
  *    4. The body containing data associated with the message
  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
+
 #define HEADER_MAX  32
 
 enum _http_method {
@@ -73,5 +77,9 @@ typedef struct _packet {
 
 int32_t
 http_parse_message(http_t *http, char *data, int32_t len);
+
+#ifdef __cplusplus
+}
+#endif // __cplusplus
 
 #endif // _HTTP_H
