@@ -4,7 +4,7 @@ INCDIRS = -Iinclude
 LIBDIRS = -Llib
 LDLIBS = -lhttp-server
 
-CFLAGS = -std=c99 -Wall -Wextra -Werror -Wno-unused-parameter $(INCDIRS)
+CFLAGS = -std=c11 -Wall -Wextra -Werror -Wno-unused-parameter $(INCDIRS)
 LDFLAGS = $(LIBDIRS) $(LDLIBS) -Wl,-rpath=lib
 
 SRCS = runtime/main.c

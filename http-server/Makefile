@@ -5,7 +5,7 @@ INCDIRS = -Iinclude
 LIBDIRS =
 LDLIBS =
 
-CFLAGS = -std=c99 -Wall -Wextra -Werror -Wno-unused-parameter $(INCDIRS)
+CFLAGS = -std=c11 -Wall -Wextra -Werror -Wno-unused-parameter $(INCDIRS)
 LDFLAGS = $(LIBDIRS) $(LDLIBS)
 
 SRCS = http-server/logger.c \
