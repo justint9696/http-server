@@ -1,10 +1,10 @@
 #ifndef _UNIT_TESTER_H
 #define _UNIT_TESTER_H
 
-#include "client.h"
-#include "logger.h"
-#include "server.h"
-#include "types.h"
+#include "http/client.h"
+#include "http/logger.h"
+#include "http/server.h"
+#include "http/types.h"
 
 #include <pthread.h>
 #include <stdio.h>

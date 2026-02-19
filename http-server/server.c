@@ -1,6 +1,6 @@
-#include "server.h"
-#include "logger.h"
-#include "types.h"
+#include "http/server.h"
+#include "http/logger.h"
+#include "http/types.h"
 
 #include <errno.h>
 #include <netinet/in.h>

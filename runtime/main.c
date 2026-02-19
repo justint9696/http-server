@@ -6,9 +6,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "logger.h"
-#include "server.h"
-#include "types.h"
+#include "http/logger.h"
+#include "http/server.h"
+#include "http/types.h"
 
 #define OK      1
 #define ERR     0

@@ -1,5 +1,5 @@
-#include "logger.h"
-#include "types.h"
+#include "http/logger.h"
+#include "http/types.h"
 
 #include <fcntl.h>
 #include <pthread.h>

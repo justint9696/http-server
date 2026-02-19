@@ -22,12 +22,16 @@
 #define LOG_FATAL(_fmt, ...) \
     _log_intern(LL_FATAL, _fmt, ##__VA_ARGS__)
 
+#define LOG_PANIC(_fmt, ...) \
+    _log_intern(LL_PANIC, _fmt, ##__VA_ARGS__)
+
 enum _log_level {
     LL_DEBUG = 0,
     LL_INFO,
     LL_WARN,
     LL_ERROR,
     LL_FATAL,
+    LL_PANIC,
     LL_NONE,
 };
 
