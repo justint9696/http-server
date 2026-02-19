@@ -56,11 +56,10 @@ _log_intern(int32_t level, const char *fmt, ...) {
 
     switch (level) {
         case LL_FATAL:
-#ifdef _DEBUG
-            abort();
-#else
             exit(HTTP_FAILURE);
-#endif // _DEBUG
+            break;
+        case LL_PANIC:
+            abort();
             break;
         default:
             return ret;
