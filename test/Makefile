@@ -8,8 +8,9 @@ CFLAGS = -std=c11 -Wall -Wextra -Werror -Wno-unused-parameter $(INCDIRS)
 LDFLAGS = $(LIBDIRS) $(LDDIRS) -Wl,-rpath=lib
 
 SRCS = test/test_logger.c \
-	   test/test_server.c \
-	   test/test_http.c
+       test/test_server.c \
+       test/test_http.c \
+       test/test_file_io.c
 
 OBJS = $(patsubst %, bin/%, $(SRCS:.c=.out))
 
