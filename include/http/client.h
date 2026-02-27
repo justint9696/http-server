@@ -22,7 +22,7 @@ int32_t
 client_send(client_t *cl, const void *data, int32_t len);
 
 int32_t
-client_recv(client_t *cl, void *data, int32_t *len);
+client_recv(client_t *cl, void *data, int32_t len);
 
 #ifdef __cplusplus
 }

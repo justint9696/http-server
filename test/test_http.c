@@ -22,9 +22,11 @@ const char *RQST_TBL[RQST_TBL_LEN] = {
 int
 main(int argc, char **argv) {
     int ret;
-    client_t cl;
     int32_t i;
     const char *request = NULL;
+    char data[2048];
+    client_t cl;
+    http_t http;
 
     if (!log_init()) {
         fprintf(stderr, "Error: Failed to create log file\n");
@@ -32,6 +34,7 @@ main(int argc, char **argv) {
     }
 
     memset(&cl, 0, sizeof(cl));
+    memset(&http, 0, sizeof(http));
     if (!(ret = client_init(&cl, SERVER_PORT))) {
         LOG_ERROR("Failed to initialize client\n");
     }
@@ -43,6 +46,19 @@ main(int argc, char **argv) {
         if (ret && !(ret = client_send(&cl, request, strlen(request)))) {
             LOG_ERROR("Failed to send packet\n");
         }
+
+        LOG_DEBUG("Waiting for server response...\n");
+        if (ret && (ret = client_recv(&cl, data, sizeof(data))) == -1) {
+            LOG_ERROR("Client failed to receive server response\n");
+            break;
+        }
+
+        LOG_INFO("Client received %d bytes from server\n", ret);
+        LOG_DEBUG("%s\n", data);
+        // if (ret && !(ret = http_parse_message(&http, data, ret))) {
+        //     LOG_ERROR("Client failed to format HTTP response\n");
+        //     break;
+        // }
     }
 
     client_destroy(&cl);

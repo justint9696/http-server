@@ -107,6 +107,8 @@ run_test(const char *pname, ctx_t *ctx) {
 static void *
 server_thread(void *args) {
     int fd;
+    int rc;
+    int retry;
     uint8_t data[1024];
     int32_t state;
     int32_t ret = 0;
@@ -139,12 +141,17 @@ server_thread(void *args) {
                     continue;
                 }
 
+                retry = 0;
                 state = SV_ALIVE;
                 break;
             case SV_ALIVE:
                 if ((ret = server_recv(
                                 &ctx->sv, fd, data, sizeof(data))) == -1) {
-                    LOG_WARN("Failed to receive packet\n");
+                    LOG_WARN("Server failed to receive message\n");
+                    if (++retry > 3) {
+                        LOG_ERROR("Server exhausted retries...\n");
+                        state = SV_DEAD;
+                    }
                     break;
                 } else if (ret == 0) {
                     LOG_INFO("Client %d disconnected\n", fd);
@@ -153,10 +160,25 @@ server_thread(void *args) {
                 }
 
                 LOG_INFO("Server received %d bytes\n", ret);
-                if (!http_parse_message(&http, (char *)data, ret)) {
+                if (!(rc = http_parse_message(&http, (char *)data, ret))) {
                     LOG_WARN("Failed to parse client data\n");
                     break;
                 }
+
+                if (!http_fmt_response(&http, rc, ctx->sv.dirname)) {
+                    LOG_WARN("Failed to format response\n");
+                    break;
+                }
+
+                LOG_DEBUG("Sending client response\n");
+                if (!server_send(&ctx->sv, fd, (void *)http.response.buf,
+                                 http.response.len)) {
+                    LOG_ERROR("Failed to send response\n");
+                    break;
+                }
+
+
+                LOG_INFO("Sent %d bytes to client\n", http.response.len);
                 break;
             default:
                 return NULL;

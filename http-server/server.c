@@ -68,7 +68,6 @@ server_send(server_t *server, int fd, const void *data, int32_t len) {
         return HTTP_ERR;
     }
 
-    close(fd);
     return HTTP_OK;
 }
 
