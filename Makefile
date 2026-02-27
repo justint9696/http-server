@@ -12,7 +12,6 @@ runtime:
 	@make -f runtime/Makefile --no-print-directory all
 
 run: server
-	@echo "Starting web sever on port 8000"
 	@bin/server --port 8000 --module public --verbose
 
 clean:

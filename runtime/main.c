@@ -22,35 +22,37 @@ typedef struct {
     char        pname[32];
     char        *module;
     int32_t     verbose;
-    int32_t     clientfd;
     int32_t     port;
     server_t    server;
-    uint8_t     data[1024];
-} state_t;
+    http_t      http;
+} ctx_t;
 
 static const char *errstr =
 "Usage: %s --port p --module m [OPTIONS]...\n";
 
 static int
-print_usage(state_t *state);
+print_usage(ctx_t *ctx);
 
 static int
-parse_options(state_t *state, int argc, char **argv);
+parse_options(ctx_t *ctx, int argc, char **argv);
+
+static int
+server_run(ctx_t *ctx);
 
 int
 main(int argc, char **argv) {
     int ret = OK;
-    state_t state;
+    ctx_t ctx;
 
-    memset(&state, 0, sizeof(state));
-    strcpy(state.pname, basename(*argv));
+    memset(&ctx, 0, sizeof(ctx));
+    strcpy(ctx.pname, basename(*argv));
 
     if (argc < 2) {
-        fprintf(stderr, errstr, state.pname);
+        fprintf(stderr, errstr, ctx.pname);
         goto err;
     }
     
-    if (!(ret = parse_options(&state, argc, argv))) {
+    if (!(ret = parse_options(&ctx, argc, argv))) {
         ret = ERR;
         goto err;
     }
@@ -60,24 +62,17 @@ main(int argc, char **argv) {
         goto err;
     }
 
-    logger_set_level(LL_WARN, LL_DEBUG);
-    if (!(ret = server_init(&state.server, state.port, NULL))) {
+    logger_set_level(LL_WARN, ((ctx.verbose == HTTP_TRUE) ? LL_TRACE : LL_INFO));
+    if (!(ret = server_init(&ctx.server, ctx.port, ctx.module))) {
         LOG_ERROR("Failed to initialize server\n");
         ret = ERR;
         goto err;
     }
 
-    while (ret) {
-        if (!(ret = server_accept(&state.server, &state.clientfd))) {
-            LOG_ERROR("Failed to connect to incoming client\n");
-        } 
-
-        if (ret && !(ret = server_recv(&state.server, state.clientfd,
-                                        state.data, sizeof(state.data)))) {
-            LOG_ERROR("Failed to receive data from client.\n");
-        }
-
-        LOG_INFO("Client says:\n%.*s\n", ret, (char *)state.data);
+    log_write("Server started on port %d\n", ctx.port);
+    if (!(ret = server_run(&ctx))) {
+        LOG_INFO("Server terminated\n");
+        goto err;
     }
 
 err:
@@ -85,8 +80,8 @@ err:
 }
 
 static int
-print_usage(state_t *state) {
-    fprintf(stderr, errstr, state->pname);
+print_usage(ctx_t *ctx) {
+    fprintf(stderr, errstr, ctx->pname);
     fprintf(stderr, "\nOptions:\n");
     fprintf(stderr, "   -p, --port=PORT          server port\n");
     fprintf(stderr, "   -m, --module=DIRECTORY   web module location\n");
@@ -96,7 +91,7 @@ print_usage(state_t *state) {
 }
 
 static int
-parse_options(state_t *state, int argc, char **argv) {
+parse_options(ctx_t *ctx, int argc, char **argv) {
     int ret = OK;
     int opt;
 
@@ -112,16 +107,16 @@ parse_options(state_t *state, int argc, char **argv) {
                     argc, argv, ":p:m:vh", long_options, NULL)) != -1) {
         switch (opt) {
             case 'v':
-                state->verbose = HTTP_TRUE;
+                ctx->verbose = HTTP_TRUE;
                 break;
             case 'p':
-                state->port = atoi(optarg);
+                ctx->port = atoi(optarg);
                 break;
             case 'm':
-                state->module = optarg;
+                ctx->module = optarg;
                 break;
             case 'h':
-                print_usage(state);
+                print_usage(ctx);
                 ret = ERR;
                 break;
             case '?': 
@@ -130,15 +125,90 @@ parse_options(state_t *state, int argc, char **argv) {
         }
     }
 
-    if (ret && !state->port) {
+    if (ret && !ctx->port) {
         fprintf(stderr, "Missing required parameter `port`\n");
         ret = ERR;
     }
 
-    if (ret && !state->module) {
+    if (ret && !ctx->module) {
         fprintf(stderr, "Missing required parameter `module`\n");
         ret = ERR;
     }
 
     return ret;
+}
+
+static int
+server_run(ctx_t *ctx) {
+    int state;
+    int fd = -1;
+    int nread = 0;
+    int rc;
+    http_t http;
+    unsigned char data[2048];
+
+    enum { SV_QUIT = 0, SV_CLOSE, SV_IDLE, SV_ACTIVE };
+
+    state = SV_IDLE;
+    while (1) {
+        switch (state) {
+            case SV_CLOSE:
+                LOG_INFO("Client %d disconnected\n", fd);
+                close(fd);
+                state = SV_IDLE;
+                break;
+            case SV_IDLE:
+                LOG_INFO("Server is ready\n");
+                if (!server_accept(&ctx->server, &fd)) {
+                    LOG_WARN("Failed to connect to client\n");
+                    break;
+                }
+
+                LOG_INFO("Client %d connected\n", fd);
+                state = SV_ACTIVE;
+                break;
+            case SV_ACTIVE:
+                if ((nread = server_recv(
+                                &ctx->server, fd, data, sizeof(data))) == -1) {
+                    LOG_WARN("Failed to receive message\n");
+                    state = SV_CLOSE;
+                    break;
+                } else if (nread == 0) {
+                    LOG_DEBUG("Received 0 bytes, closing connection\n");
+                    state = SV_CLOSE;
+                    break;
+                }
+
+                LOG_DEBUG("Received %d bytes from client %d\n", nread, fd);
+                LOG_TRACE("%s\n", data);
+                if (!(rc = http_parse_message(&http, (char *)data, nread))) {
+                    LOG_WARN("Failed to parse client request\n");
+                }
+
+                if (!http_fmt_response(&http, rc, ctx->server.dirname)) {
+                    LOG_WARN("Failed for format client response\n");
+                    break;
+                }
+
+                LOG_DEBUG("Sending %d bytes to client %d\n", http.response.len, fd);
+                if (!server_send(
+                            &ctx->server,
+                            fd,
+                            (void *)http.response.buf,
+                            http.response.len)) {
+                    LOG_WARN("Failed to send client response\n");
+                    break;
+                }
+                LOG_DEBUG("Success\n");
+
+                break;
+            case SV_QUIT:
+                return ERR;
+            default:
+                LOG_PANIC("Server entered an unknown state %d\n", state);
+                break;
+        }
+    }
+
+    return OK;
 }

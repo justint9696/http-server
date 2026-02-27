@@ -71,6 +71,45 @@ _log_intern(int32_t level, const char *fmt, ...) {
 }
 
 int32_t
+log_write(const char *fmt, ...) {
+    int ret = HTTP_OK;
+    size_t len;
+    time_t ts;
+    va_list args;
+    char timestr[64];
+    char text[1024];
+    struct timeval tv; 
+    pid_t pid;
+
+    pthread_mutex_lock(&g_logger.mtx);
+
+    time(&ts);
+    gettimeofday(&tv, NULL);
+    strftime(timestr, sizeof(timestr), "%M:%S", localtime(&ts));
+
+    pid = getpid();
+    snprintf(text, sizeof(text), "[%s:%03ld][%d] ",
+            timestr, (tv.tv_usec / 1000), (int)pid);
+    len = strlen(text);
+
+    va_start(args, fmt);
+    vsnprintf(&text[len], sizeof(text) - len, fmt, args);
+    va_end(args);
+
+    if (write(g_logger.fd, (void *)text, strlen(text)) == -1) {
+        perror("write");
+        ret = HTTP_ERR;
+    }
+
+    fprintf(stdout, "%s", text);
+    fflush(stdout);
+
+    pthread_mutex_unlock(&g_logger.mtx);
+
+    return ret;
+}
+
+int32_t
 logger_set_file(const char *fname, int32_t append) {
     int flags = (O_RDWR | O_APPEND | O_CREAT);
     flags |= ((append) ? 0 : O_TRUNC);

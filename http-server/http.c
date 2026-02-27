@@ -385,6 +385,7 @@ http_fmt_get_response(http_t *http, const char *dirname) {
 
 int32_t
 http_fmt_response(http_t *http, int32_t rc, const char *dirname) {
+    int ret = HTTP_OK;
     request_t *rqst = NULL;
     response_t *rspn = NULL;
     response_callback_fn_t callback_fn = NULL;
@@ -404,14 +405,16 @@ http_fmt_response(http_t *http, int32_t rc, const char *dirname) {
     memset(rspn, 0, sizeof(response_t));
 
     // format response based on the request method
-    if ((callback_fn = HTTP_RESPONSE_CALLBACK[rqst->method]) == NULL) {
-        LOG_WARN("Unknown method type: `%d`\n");
-        return HTTP_OK;
-    }
+    if ((callback_fn = HTTP_RESPONSE_CALLBACK[rqst->method]) != NULL
+            && !(ret = callback_fn(http, dirname))) {
+        LOG_INFO("Failed to format response\n");
+    } 
 
-    if (!callback_fn(http, dirname)) {
-        LOG_ERROR("Failed to format response\n");
-        return HTTP_ERR;
+    if (!callback_fn || !ret) {
+        if (!http_fmt_default_response(http, dirname)) {
+            LOG_ERROR("Failed to format default response\n");
+            return HTTP_ERR;
+        }
     }
     
     return HTTP_OK;

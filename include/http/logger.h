@@ -49,6 +49,9 @@ int32_t
 _log_intern(int32_t level, const char *fmt, ...);
 
 int32_t
+log_write(const char *fmt, ...);
+
+int32_t
 logger_set_file(const char *fname, int32_t append);
 
 int32_t
