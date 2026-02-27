@@ -23,11 +23,11 @@ int main(int argc, char **argv) {
         goto err;
     }
 
-    LOG_INFO("Streaming %d bytes\n", size);
+    LOG_DEBUG("Streaming %d bytes\n", size);
 
     offset = 0;
     while ((nread = file_stream(fd, offset, buf, sizeof(buf))) > 0) {
-        LOG_INFO("Streamed %d bytes: %.*s\n", nread, nread, buf);
+        LOG_TRACE("Streamed %d bytes: %.*s\n", nread, nread, buf);
         offset += nread;
     }
 

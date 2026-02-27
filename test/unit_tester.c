@@ -130,7 +130,7 @@ server_thread(void *args) {
     while (1) {
         switch (state) {
             case SV_DEAD:
-                LOG_INFO("Closing connection\n");
+                LOG_INFO("Client %d disconnected\n", fd);
                 close(fd);
                 state = SV_IDLE;
                 break;
@@ -141,36 +141,36 @@ server_thread(void *args) {
                     continue;
                 }
 
+                LOG_INFO("Client %d connected\n", fd);
+
                 retry = 0;
                 state = SV_ALIVE;
                 break;
             case SV_ALIVE:
                 if ((ret = server_recv(
                                 &ctx->sv, fd, data, sizeof(data))) == -1) {
-                    LOG_WARN("Server failed to receive message\n");
+                    LOG_INFO("Server failed to receive message\n");
                     if (++retry > 3) {
-                        LOG_ERROR("Server exhausted retries...\n");
+                        LOG_INFO("Server exhausted retries\n");
                         state = SV_DEAD;
                     }
                     break;
                 } else if (ret == 0) {
-                    LOG_INFO("Client %d disconnected\n", fd);
+                    LOG_DEBUG("Received 0 bytes, closing connection\n");
                     state = SV_DEAD;
                     break;
                 }
 
-                LOG_INFO("Server received %d bytes\n", ret);
+                LOG_DEBUG("Server received %d bytes\n", ret);
                 if (!(rc = http_parse_message(&http, (char *)data, ret))) {
                     LOG_WARN("Failed to parse client data\n");
-                    break;
                 }
 
                 if (!http_fmt_response(&http, rc, ctx->sv.dirname)) {
-                    LOG_WARN("Failed to format response\n");
+                    LOG_ERROR("Failed to format response\n");
                     break;
                 }
 
-                LOG_DEBUG("Sending client response\n");
                 if (!server_send(&ctx->sv, fd, (void *)http.response.buf,
                                  http.response.len)) {
                     LOG_ERROR("Failed to send response\n");
@@ -178,7 +178,7 @@ server_thread(void *args) {
                 }
 
 
-                LOG_INFO("Sent %d bytes to client\n", http.response.len);
+                LOG_DEBUG("Sent %d bytes to client\n", http.response.len);
                 break;
             default:
                 return NULL;

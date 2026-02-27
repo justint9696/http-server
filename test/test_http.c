@@ -42,19 +42,19 @@ main(int argc, char **argv) {
     for (i = 0; i < RQST_TBL_LEN; i++) {
         request = RQST_TBL[i];
 
-        LOG_INFO("Sending HTTP request %d\n", (i+1));
+        LOG_DEBUG("Sending HTTP request %d\n", (i+1));
         if (ret && !(ret = client_send(&cl, request, strlen(request)))) {
             LOG_ERROR("Failed to send packet\n");
         }
 
-        LOG_DEBUG("Waiting for server response...\n");
+        LOG_DEBUG("Waiting for server response\n");
         if (ret && (ret = client_recv(&cl, data, sizeof(data))) == -1) {
             LOG_ERROR("Client failed to receive server response\n");
             break;
         }
 
-        LOG_INFO("Client received %d bytes from server\n", ret);
-        LOG_DEBUG("%s\n", data);
+        LOG_DEBUG("Client received %d bytes from server\n", ret);
+        LOG_TRACE("%s\n", data);
         // if (ret && !(ret = http_parse_message(&http, data, ret))) {
         //     LOG_ERROR("Client failed to format HTTP response\n");
         //     break;

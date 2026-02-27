@@ -20,7 +20,7 @@ server_init(server_t *server, int32_t port, const char *dirname) {
     }
 
     if ((server->sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-        LOG_ERROR("server->sockfd: %s\n", strerror(errno));
+        LOG_ERROR("socket: %s\n", strerror(errno));
         return HTTP_ERR;
     }
 
@@ -34,7 +34,6 @@ server_init(server_t *server, int32_t port, const char *dirname) {
         return HTTP_ERR;
     }
 
-    LOG_INFO("Waiting for connection on port %d...\n", server->port);
     if (listen(server->sockfd, 1) == -1) {
         LOG_ERROR("listen: %s\n", strerror(errno));
         close(server->sockfd);
@@ -53,18 +52,17 @@ server_destroy(server_t *server) {
 int32_t
 server_accept(server_t *server, int *fd) {
     if ((*fd = accept(server->sockfd, NULL, NULL)) == -1) {
-        LOG_ERROR("accept: %s\n", strerror(errno));
+        LOG_INFO("accept: %s\n", strerror(errno));
         return HTTP_ERR;
     }
 
-    LOG_INFO("Client %d connected.\n", *fd);
     return HTTP_OK;
 }
 
 int32_t
 server_send(server_t *server, int fd, const void *data, int32_t len) {
     if (send(fd, data, len, 0) == -1) {
-        perror("send");
+        LOG_INFO("send: %s\n", strerror(errno));
         return HTTP_ERR;
     }
 
@@ -76,7 +74,7 @@ server_recv(server_t *server, int fd, void *data, int32_t len) {
     int32_t nread;
     memset(data, 0, len);
     if ((nread = recv(fd, data, len, 0)) == -1) {
-        LOG_ERROR("recv: %s\n", strerror(errno));
+        LOG_INFO("recv: %s\n", strerror(errno));
     }
 
     return nread;

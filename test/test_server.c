@@ -24,10 +24,9 @@ main(int argc, char **argv) {
     strcpy((char *)data, "Hello from client");
     len = strlen((char *)data);
 
-    LOG_INFO("Sending `%s` to server\n", (char *)data);
-
+    LOG_DEBUG("Sending `%s` to server\n", (char *)data);
     if (ret && !(ret = client_send(&cl, data, len))) {
-        LOG_ERROR("Failed to send packet\n");
+        LOG_WARN("Failed to send packet\n");
     }
 
     client_destroy(&cl);

@@ -185,7 +185,7 @@ http_parse_message(http_t *http, char *data, int32_t len) {
                 }
 
                 if ((idx = rqst->nheaders++) >= HEADER_MAX) {
-                    LOG_WARN("Header count exceeds maximum length %d\n", idx);
+                    LOG_INFO("Header count exceeds maximum length %d\n", idx);
                     state = PS_ERR;
                     break;
                 }
@@ -205,7 +205,7 @@ http_parse_message(http_t *http, char *data, int32_t len) {
                 }
 
                 if (i >= KEYWORD_MAX) {
-                    LOG_INFO("Bad keyword: `%.*s`\n", tok.len, tok.str);
+                    LOG_INFO("Unknown keyword: `%.*s`\n", tok.len, tok.str);
                 }
                 break;
             case PS_HEADER_VALUE:
@@ -275,6 +275,7 @@ http_fmt_default_response(http_t *http, const char *dirname) {
     char timestr[64];
     response_t *rspn = NULL;
 
+    LOG_DEBUG("Creating default 400 response\n");
     rspn = &http->response;
 
     http_date_now(timestr, sizeof(timestr));
@@ -334,20 +335,20 @@ http_fmt_get_response(http_t *http, const char *dirname) {
         }
 
         if (len == i) {
-            LOG_WARN("Could not locate default file\n");
+            LOG_INFO("Could not find default file in directory `%s`\n", dirname);
             return http_fmt_default_response(http, dirname);
         }
     } else {
         snprintf(fpath, sizeof(fpath), "%s%.*s",
                 dirname, rqst->target.len, rqst->target.str);
         if ((fd = file_open(fpath)) == -1) {
-            LOG_WARN("Bad file: `%s`\n");
+            LOG_INFO("Bad file: `%s`\n", fpath);
             return http_fmt_default_response(http, dirname);
         }
     }
 
     if (!(size = file_size(fd))) {
-        LOG_WARN("Could not determine file size\n");
+        LOG_INFO("Could not determine file size\n");
         return http_fmt_default_response(http, dirname);
     }
 
@@ -364,7 +365,7 @@ http_fmt_get_response(http_t *http, const char *dirname) {
 
     if ((int)(sizeof(rspn->buf) - rspn->len) < size) {
         // TODO: stream the file to client
-        LOG_WARN("File size exceeds the 8kb limit\n");
+        LOG_INFO("File size exceeds the 8kb limit\n");
     }
 
     offset = 0;

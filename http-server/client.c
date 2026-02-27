@@ -44,7 +44,7 @@ int32_t
 client_send(client_t *cl, const void *data, int32_t len) {
     LOG_DEBUG("Sending %d bytes to server\n");
     if (send(cl->sockfd, data, len, 0) == -1) {
-        LOG_ERROR("send: %s\n", strerror(errno));
+        LOG_INFO("send: %s\n", strerror(errno));
         return HTTP_ERR;
     }
     return HTTP_OK;
@@ -55,7 +55,7 @@ client_recv(client_t *cl, void *data, int32_t len) {
     int32_t nread;
     memset(data, 0, len);
     if ((nread = recv(cl->sockfd, data, len, 0)) == -1) {
-        LOG_ERROR("recv: %s\n", strerror(errno));
+        LOG_INFO("recv: %s\n", strerror(errno));
     }
 
     return nread;
