@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 static struct {
@@ -25,7 +26,8 @@ _log_intern(int32_t level, const char *fmt, ...) {
     va_list args;
     char timestr[64];
     char text[1024];
-    struct timeval tv;
+    struct timeval tv; 
+    pid_t pid;
 
     pthread_mutex_lock(&g_logger.mtx);
 
@@ -33,7 +35,9 @@ _log_intern(int32_t level, const char *fmt, ...) {
     gettimeofday(&tv, NULL);
     strftime(timestr, sizeof(timestr), "%M:%S", localtime(&ts));
 
-    snprintf(text, sizeof(text), "[%s:%03ld] ", timestr, (tv.tv_usec / 1000));
+    pid = getpid();
+    snprintf(text, sizeof(text), "[%s:%03ld][%d] ",
+            timestr, (tv.tv_usec / 1000), (int)pid);
     len = strlen(text);
 
     va_start(args, fmt);
