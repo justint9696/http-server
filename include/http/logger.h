@@ -8,9 +8,14 @@ extern "C" {
 #endif // __cplusplus
 
 #ifdef _DEBUG
+#define LOG_TRACE(_fmt, ...) \
+    _log_intern(LL_TRACE, _fmt, ##__VA_ARGS__)
+
 #define LOG_DEBUG(_fmt, ...) \
     _log_intern(LL_DEBUG, _fmt, ##__VA_ARGS__)
 #else
+#define LOG_TRACE(_fmt, ...)
+
 #define LOG_DEBUG(_fmt, ...)
 #endif // _DEBUG
 
@@ -30,7 +35,8 @@ extern "C" {
     _log_intern(LL_PANIC, _fmt, ##__VA_ARGS__)
 
 enum _log_level {
-    LL_DEBUG = 0,
+    LL_TRACE = 0,
+    LL_DEBUG,
     LL_INFO,
     LL_WARN,
     LL_ERROR,
