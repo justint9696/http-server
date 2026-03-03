@@ -1,5 +1,5 @@
-#ifndef _HTTP_H
-#define _HTTP_H
+#ifndef _HTTP_HTTP_H
+#define _HTTP_HTTP_H
 
 #include <stddef.h>
 #include <stdint.h>
@@ -138,4 +138,4 @@ http_fmt_response(http_t *http, int32_t rc, const char *dirname);
 }
 #endif // __cplusplus
 
-#endif // _HTTP_H
+#endif // _HTTP_HTTP_H

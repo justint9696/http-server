@@ -1,5 +1,5 @@
-#ifndef _ASSERT_H
-#define _ASSERT_H
+#ifndef _HTTP_ASSERT_H
+#define _HTTP_ASSERT_H
 
 #include "http/logger.h"
 
@@ -19,4 +19,4 @@ extern "C" {
 }
 #endif // __cplusplus
 
-#endif // _ASSERT_H
+#endif // _HTTP_ASSERT_H

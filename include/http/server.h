@@ -1,5 +1,5 @@
-#ifndef _SERVER_H
-#define _SERVER_H
+#ifndef _HTTP_SERVER_H
+#define _HTTP_SERVER_H
 
 #include "http/http.h"
 
@@ -34,4 +34,4 @@ server_recv(server_t *server, int fd, void *data, int32_t len);
 }
 #endif // __cplusplus
 
-#endif // _SERVER_H
+#endif // _HTTP_SERVER_H

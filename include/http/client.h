@@ -1,5 +1,5 @@
-#ifndef _CLIENT_H
-#define _CLIENT_H
+#ifndef _HTTP_CLIENT_H
+#define _HTTP_CLIENT_H
 
 #include "http/server.h"
 
@@ -28,4 +28,4 @@ client_recv(client_t *cl, void *data, int32_t len);
 }
 #endif // __cplusplus
 
-#endif // _CLIENT_H
+#endif // _HTTP_CLIENT_H
