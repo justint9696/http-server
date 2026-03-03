@@ -11,7 +11,8 @@ LDFLAGS = $(LIBDIRS) $(LDLIBS)
 SRCS = http-server/logger.c \
        http-server/server.c \
        http-server/client.c \
-       http-server/http.c \
+       http-server/request.c \
+       http-server/response.c \
        http-server/file_io.c
 
 OBJS = $(patsubst %, build/%, $(SRCS:.c=.o))

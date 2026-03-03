@@ -1,15 +1,9 @@
 #include "http/http.h"
-#include "http/file_io.h"
 #include "http/logger.h"
 #include "http/types.h"
 
 #include <ctype.h>
-#include <errno.h> 
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <time.h>
-#include <sys/types.h>
 
 enum _keyword_type {
     KW_REQUEST,
@@ -23,11 +17,11 @@ enum _hdr_type {
     HDR_HOST,
     HDR_TYPE,
     HDR_LENGTH,
+    HDR_CONNECTION,
+    HDR_ACCEPT,
     
     HDR_MAX
 };
-
-typedef int32_t (*response_callback_fn_t)(http_t *, const char *);
 
 typedef struct _keyword {
     char        *text;
@@ -41,7 +35,7 @@ typedef struct _lexer {
     int32_t     pos;
 } lexer_t;
 
-#define KEYWORD_MAX     8
+#define KEYWORD_MAX     10
 
 const keyword_t HTTP_KEYWORDS[KEYWORD_MAX] = {
     { "UNKNOWN",            KW_REQUEST,         RQST_UNKNOWN },
@@ -52,6 +46,8 @@ const keyword_t HTTP_KEYWORDS[KEYWORD_MAX] = {
     { "Host",               KW_HEADER,          HDR_HOST, },
     { "Content-Type",       KW_HEADER,          HDR_TYPE, },
     { "Content-Length",     KW_HEADER,          HDR_LENGTH },
+    { "Connection",         KW_HEADER,          HDR_CONNECTION },
+    { "Accept",             KW_HEADER,          HDR_ACCEPT },
 };
 
 static int32_t
@@ -117,6 +113,7 @@ http_parse_message(http_t *http, char *data, int32_t len) {
 
     enum _parser_state {
         PS_ERR = -1,
+        PS_QUIT,
         PS_METHOD,
         PS_TARGET,
         PS_VERSION,
@@ -144,7 +141,9 @@ http_parse_message(http_t *http, char *data, int32_t len) {
                     if (keyword->type != KW_REQUEST)
                         continue;
 
-                    if (!strncmp(tok.str, keyword->text, tok.len)) {
+                    if (!(tok.len - strlen(keyword->text))
+                            && !strncmp(tok.str, keyword->text, tok.len)) {
+                        LOG_DEBUG("Found %s\n", keyword->text);
                         switch (keyword->type) {
                             case KW_REQUEST:
                                 http->type = MSG_REQUEST;
@@ -163,13 +162,17 @@ http_parse_message(http_t *http, char *data, int32_t len) {
                 state = ((i >= KEYWORD_MAX) ? PS_ERR : PS_TARGET);
                 break;
             case PS_TARGET:
+                if (tok.type == TOK_CRLF) {
+                    state = PS_ERR;
+                    break;
+                }
+
                 memcpy(&rqst->target, &tok, sizeof(token_t));
                 state = PS_VERSION;
                 break;
             case PS_VERSION:
-                // consume new line
                 if (tok.type == TOK_CRLF) {
-                    state = PS_HEADER_NAME;
+                    state = ((rqst->version.len > 0) ? PS_HEADER_NAME : PS_ERR);
                     break;
                 }
 
@@ -204,9 +207,10 @@ http_parse_message(http_t *http, char *data, int32_t len) {
                     }
                 }
 
-                if (i >= KEYWORD_MAX) {
-                    LOG_INFO("Unknown keyword: `%.*s`\n", tok.len, tok.str);
-                }
+                // XXX: this clutters logs
+                // if (i >= KEYWORD_MAX) {
+                //     LOG_INFO("Unhandled keyword: `%.*s`\n", tok.len, tok.str);
+                // }
                 break;
             case PS_HEADER_VALUE:
                 if (tok.type == TOK_CRLF) {
@@ -223,7 +227,7 @@ http_parse_message(http_t *http, char *data, int32_t len) {
                 break;
             case PS_BODY:
                 if (tok.type == TOK_EOF) {
-                    state = PS_ERR;
+                    state = PS_QUIT;
                     break;
                 }
 
@@ -234,8 +238,21 @@ http_parse_message(http_t *http, char *data, int32_t len) {
                 }
 
                 break;
-            default: break;
+            case PS_ERR:
+                LOG_ERROR("Invalid HTTP request\n");
+                return HTTP_ERR;
+            case PS_QUIT:
+                break;
+            default:
+                LOG_ERROR("Unknown parser state `%d`\n", state);
+                return HTTP_ERR;
         }
+    } // end switch
+
+
+    if (state == PS_ERR) {
+        LOG_ERROR("Invalid HTTP request\n");
+        return HTTP_ERR;
     }
 
     switch (http->type) {
@@ -258,164 +275,5 @@ http_parse_message(http_t *http, char *data, int32_t len) {
         default: break;
     }
 
-    return HTTP_OK;
-}
-
-static inline int32_t
-http_date_now(char *buf, int32_t len) {
-    time_t ts;
-
-    time(&ts);
-    strftime(buf, len, "%c", localtime(&ts));
-
-    return HTTP_OK;
-}
-static int32_t
-http_fmt_default_response(http_t *http, const char *dirname) {
-    char timestr[64];
-    response_t *rspn = NULL;
-
-    LOG_DEBUG("Creating default 400 response\n");
-    rspn = &http->response;
-
-    http_date_now(timestr, sizeof(timestr));
-    snprintf(rspn->buf, sizeof(rspn->buf),
-             "HTTP/1.1 400 Bad Request\n"
-             "Server: HTTP Server\n"
-             "Date: %s\n"
-             "\n",
-             timestr);
-
-    rspn->len = strlen(rspn->buf);
-    return HTTP_OK;
-}
-
-static int32_t
-http_fmt_get_response(http_t *http, const char *dirname) {
-    request_t *rqst = NULL;
-    response_t *rspn = NULL;
-    header_t *hd = NULL;
-    char timestr[64];
-    char fpath[FILENAME_MAX];
-    int32_t i;
-    int32_t nread;
-    int32_t size;
-    int32_t fd = -1;
-    int32_t offset;
-    int32_t len;
-
-    rqst = &http->request;
-    rspn = &http->response;
-
-    // TODO: should probably do something with these
-    for (i = 0; i < rqst->nheaders; i++) {
-        hd = &rqst->headers[i];
-        switch (hd->type) {
-            default: break;
-        }
-    }
-
-    static const char *DEFAULT_FILES[] = {
-        "index.html",
-        "index.htm",
-        "index.php"
-    };
-
-    len = sizeof(DEFAULT_FILES) / sizeof(char *);
-
-    if (rqst->target.len == 1 && *rqst->target.str == '/') {
-        // look for an index file in the root dir
-        for (i = 0; i < len; i++) {
-            snprintf(fpath, sizeof(fpath), "%s/%s",
-                    dirname, DEFAULT_FILES[i]);
-            if ((fd = file_open(fpath)) != -1) {
-                LOG_DEBUG("Found %s\n", fpath);
-                break;
-            }
-        }
-
-        if (len == i) {
-            LOG_INFO("Could not find default file in directory `%s`\n", dirname);
-            return http_fmt_default_response(http, dirname);
-        }
-    } else {
-        snprintf(fpath, sizeof(fpath), "%s%.*s",
-                dirname, rqst->target.len, rqst->target.str);
-        if ((fd = file_open(fpath)) == -1) {
-            LOG_INFO("Bad file: `%s`\n", fpath);
-            return http_fmt_default_response(http, dirname);
-        }
-    }
-
-    if (!(size = file_size(fd))) {
-        LOG_INFO("Could not determine file size\n");
-        return http_fmt_default_response(http, dirname);
-    }
-
-    http_date_now(timestr, sizeof(timestr));
-    snprintf(rspn->buf, sizeof(rspn->buf),
-             "HTTP/1.1 200 OK\n"
-             "Server: HTTP Server\n"
-             "Date: %s\n"
-             "Content-Length: %d\n"
-             "\n",
-             timestr, size);
-
-    rspn->len = strlen(rspn->buf);
-
-    if ((int)(sizeof(rspn->buf) - rspn->len) < size) {
-        // TODO: stream the file to client
-        LOG_INFO("File size exceeds the 8kb limit\n");
-    }
-
-    offset = 0;
-    while ((nread = file_stream(
-                    fd,
-                    offset,
-                    (unsigned char *)(rspn->buf + rspn->len),
-                    sizeof(rspn->buf) - rspn->len)) > 0) {
-        offset += nread;
-        rspn->len += nread;
-    }
-
-    (void)file_close(fd);
-
-    return HTTP_OK;
-}
-
-int32_t
-http_fmt_response(http_t *http, int32_t rc, const char *dirname) {
-    int ret = HTTP_OK;
-    request_t *rqst = NULL;
-    response_t *rspn = NULL;
-    response_callback_fn_t callback_fn = NULL;
-
-    // response callback table
-    static const response_callback_fn_t HTTP_RESPONSE_CALLBACK[RQST_MAX] = {
-        http_fmt_default_response,      // RQST_UNKNOWN
-        http_fmt_get_response,          // RQST_GET
-        http_fmt_default_response,      // RQST_POST
-        http_fmt_default_response,      // RQST_PUT
-        http_fmt_default_response,      // RQST_DELETE
-    };
-    
-    rqst = &http->request;
-    rspn = &http->response;
-
-    memset(rspn, 0, sizeof(response_t));
-
-    // format response based on the request method
-    if ((callback_fn = HTTP_RESPONSE_CALLBACK[rqst->method]) != NULL
-            && !(ret = callback_fn(http, dirname))) {
-        LOG_INFO("Failed to format response\n");
-    } 
-
-    if (!callback_fn || !ret) {
-        if (!http_fmt_default_response(http, dirname)) {
-            LOG_ERROR("Failed to format default response\n");
-            return HTTP_ERR;
-        }
-    }
-    
     return HTTP_OK;
 }
