@@ -4,19 +4,24 @@
 
 #include <string.h>
 
-#define RQST_TBL_LEN 2
+#define RQST_TBL_LEN 4
 
 const char *RQST_TBL[RQST_TBL_LEN] = {
-    "GET / HTTP/1.1\n"
-    "Host: localhost:8000\n"
-    "Accept: */*\n",
+    "GET / HTTP/1.1\r\n"
+    "Host: localhost:8000\r\n"
+    "Accept: */*\r\n",
 
-    "POST /users HTTP/1.1\n"
-    "Host: example.com\n"
-    "Content-Type: application/x-www-form-urlencoded\n"
-    "Content-Length: 49\n"
-    "\n"
+    "POST /users HTTP/1.1\r\n"
+    "Host: example.com\r\n"
+    "Content-Type: application/x-www-form-urlencoded\r\n"
+    "Content-Length: 49\r\n"
+    "\r\n"
     "name=FirstName+LastName&email=bsmth%40example.com",
+
+
+    "GE T / HTTP/1.1\r\n",
+
+    "GET /\r\n"
 };
 
 int

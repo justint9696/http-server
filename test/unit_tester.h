@@ -16,7 +16,7 @@
 #define UT_FAILURE      1
 
 #define SERVER_PORT     3000
-#define SERVER_ROOT     "public"
+#define SERVER_ROOT     "test/res/public"
 #define LOG_FILE        "logs/tests.log"
 #define LOG_LEVEL       LL_TRACE
 
