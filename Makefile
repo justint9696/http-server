@@ -12,7 +12,7 @@ runtime:
 	@make -f runtime/Makefile --no-print-directory all
 
 run: server
-	@bin/server --port 8000 --module public --verbose
+	@bin/server --port 8000 --module runtime/public --verbose
 
 clean:
 	@make -f http-server/Makefile --no-print-directory clean
