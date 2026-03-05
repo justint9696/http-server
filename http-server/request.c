@@ -143,7 +143,6 @@ http_parse_message(http_t *http, char *data, int32_t len) {
 
                     if (!(tok.len - strlen(keyword->text))
                             && !strncmp(tok.str, keyword->text, tok.len)) {
-                        LOG_DEBUG("Found %s\n", keyword->text);
                         switch (keyword->type) {
                             case KW_REQUEST:
                                 http->type = MSG_REQUEST;
@@ -257,7 +256,7 @@ http_parse_message(http_t *http, char *data, int32_t len) {
 
     switch (http->type) {
         case MSG_REQUEST:
-            LOG_DEBUG("HTTP info: %d %.*s %.*s %d\n",
+            LOG_TRACE("HTTP info: %d %.*s %.*s %d\n",
                     http->request.method,
                     rqst->target.len, rqst->target.str,
                     rqst->version.len, rqst->version.str,
@@ -265,12 +264,15 @@ http_parse_message(http_t *http, char *data, int32_t len) {
 
             for (i = 0; i < rqst->nheaders; i++) {
                 hd = &rqst->headers[i];
-                LOG_DEBUG("   %.*s: %.*s\n",
+                LOG_TRACE("   %.*s: %.*s\n",
                         hd->name.len, hd->name.str, 
                         hd->value.len, hd->value.str);
             }
 
-            LOG_DEBUG("HTTP body: %.*s\n", rqst->body.len, rqst->body.str);
+            if (rqst->body.len && rqst->body.str) {
+                LOG_TRACE("HTTP body: %.*s\n", rqst->body.len, rqst->body.str);
+            }
+
             break;
         default: break;
     }

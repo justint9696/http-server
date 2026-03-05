@@ -176,18 +176,22 @@ http_fmt_GET_response(http_t *http, const char *dirname) {
     static const char *DEFAULT_FILES[] = {
         "index.html",
         "index.htm",
-        "index.php"
+        "index.php",
+        "default.html"
     };
 
     static const int32_t len = sizeof(DEFAULT_FILES) / sizeof(char *);
 
     if (rqst->target.len == 1 && *rqst->target.str == '/') {
         // look for an index file in the root dir
+        LOG_DEBUG("Searching for index file\n");
         for (i = 0; i < len; i++) {
             snprintf(fpath, sizeof(fpath), "%s/%s",
                     dirname, DEFAULT_FILES[i]);
-            if ((fd = file_open(fpath)) != -1) {
-                LOG_DEBUG("Found `%s`\n", fpath);
+            if (file_exists(fpath) == HTTP_TRUE) {
+                if ((fd = file_open(fpath)) == -1) {
+                    return http_fmt_400_response(http, dirname);
+                }
                 break;
             }
         }
@@ -200,7 +204,6 @@ http_fmt_GET_response(http_t *http, const char *dirname) {
         snprintf(fpath, sizeof(fpath), "%s%.*s",
                 dirname, rqst->target.len, rqst->target.str);
         if ((fd = file_open(fpath)) == -1) {
-            LOG_INFO("Bad file `%s`\n", fpath);
             return http_fmt_404_response(http, dirname);
         }
     }
