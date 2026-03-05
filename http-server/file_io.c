@@ -68,3 +68,13 @@ file_size(int32_t fd) {
 
     return st.st_size;
 }
+
+int32_t
+file_exists(const char *fname) {
+    struct stat st;
+
+    if (stat(fname, &st) == -1)
+        return HTTP_FALSE;
+
+    return HTTP_TRUE;
+}

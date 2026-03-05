@@ -47,4 +47,14 @@ file_stream(int32_t fd, int32_t offset, unsigned char *buf, int32_t len);
 int32_t
 file_size(int32_t fd);
 
+/**
+  * Determines if a file exists.
+  *
+  * @param[in] fd       the open file descriptor
+  *
+  * @return HTTP_TRUE found or HTTP_FALSE otherwise
+  */
+int32_t
+file_exists(const char *fname);
+
 #endif // _HTTP_FILE_IO_H
