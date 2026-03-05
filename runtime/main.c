@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <getopt.h>
 #include <libgen.h>
 #include <stdio.h>
@@ -7,6 +8,7 @@
 #include <unistd.h>
 
 #include "http/logger.h"
+#include "http/http.h"
 #include "http/server.h"
 #include "http/types.h"
 
@@ -38,6 +40,9 @@ parse_options(ctx_t *ctx, int argc, char **argv);
 
 static int
 server_run(ctx_t *ctx);
+
+static int
+handle_client_connection(ctx_t *ctx, int clientfd);
 
 int
 main(int argc, char **argv) {
@@ -140,75 +145,73 @@ parse_options(ctx_t *ctx, int argc, char **argv) {
 
 static int
 server_run(ctx_t *ctx) {
-    int state;
     int fd = -1;
-    int nread = 0;
-    int rc;
-    http_t http;
-    unsigned char data[2048];
+    pid_t pid;
 
-    enum { SV_QUIT = 0, SV_CLOSE, SV_IDLE, SV_ACTIVE };
-
-    state = SV_IDLE;
     while (1) {
-        switch (state) {
-            case SV_CLOSE:
-                LOG_INFO("Client %d disconnected\n", fd);
-                close(fd);
-                state = SV_IDLE;
+        if (!server_accept(&ctx->server, &fd)) {
+            LOG_WARN("Failed to connect to incoming client\n");
+            continue;
+        }
+
+        switch ((pid = fork())) {
+            case -1:
+                LOG_ERROR("fork: %s\n", strerror(errno));
                 break;
-            case SV_IDLE:
-                LOG_INFO("Server is ready\n");
-                if (!server_accept(&ctx->server, &fd)) {
-                    LOG_WARN("Failed to connect to client\n");
-                    break;
-                }
-
-                LOG_INFO("Client %d connected\n", fd);
-                state = SV_ACTIVE;
+            case 0:
+                exit(handle_client_connection(ctx, fd));
                 break;
-            case SV_ACTIVE:
-                if ((nread = server_recv(
-                                &ctx->server, fd, data, sizeof(data))) == -1) {
-                    LOG_WARN("Failed to receive message\n");
-                    state = SV_CLOSE;
-                    break;
-                } else if (nread == 0) {
-                    LOG_DEBUG("Received 0 bytes, closing connection\n");
-                    state = SV_CLOSE;
-                    break;
-                }
-
-                LOG_DEBUG("Received %d bytes from client %d\n", nread, fd);
-                LOG_TRACE("%s\n", data);
-                if (!(rc = http_parse_message(&http, (char *)data, nread))) {
-                    LOG_WARN("Failed to parse client request\n");
-                }
-
-                if (!http_fmt_response(&http, rc, ctx->server.dirname)) {
-                    LOG_WARN("Failed for format client response\n");
-                    break;
-                }
-
-                LOG_DEBUG("Sending %d bytes to client %d\n", http.response.len, fd);
-                if (!server_send(
-                            &ctx->server,
-                            fd,
-                            (void *)http.response.buf,
-                            http.response.len)) {
-                    LOG_WARN("Failed to send client response\n");
-                    break;
-                }
-                LOG_DEBUG("Success\n");
-
-                break;
-            case SV_QUIT:
-                return ERR;
             default:
-                LOG_PANIC("Server entered an unknown state %d\n", state);
+                LOG_INFO("Spawned child process %d\n", pid);
                 break;
         }
     }
 
     return OK;
+}
+
+static int
+handle_client_connection(ctx_t *ctx, int fd) {
+    int nread = 0;
+    int rc;
+    http_t http;
+    unsigned char data[8192];
+
+    while (1) {
+        memset(data, '\0', sizeof(data));
+        if ((nread = server_recv(
+                        &ctx->server, fd, data, sizeof(data))) == -1) {
+            LOG_WARN("Failed to receive message\n");
+            break;
+        } else if (nread == 0) {
+            LOG_DEBUG("Received 0 bytes, closing connection\n");
+            break;
+        }
+
+        LOG_DEBUG("Received %d bytes from client %d\n", nread, fd);
+        if (!(rc = http_parse_message(&http, (char *)data, nread))) {
+            LOG_WARN("Failed to parse client request\n");
+        }
+
+        if (!http_fmt_response(&http, rc, ctx->server.dirname)) {
+            LOG_WARN("Failed for format client response\n");
+            break;
+        }
+
+        LOG_DEBUG("Sending %d bytes to client %d\n", http.response.len, fd);
+        if (!server_send(
+                    &ctx->server,
+                    fd,
+                    (void *)http.response.buf,
+                    http.response.len)) {
+            LOG_WARN("Failed to send client response\n");
+            break;
+        }
+        LOG_DEBUG("Success\n");
+    }
+
+    LOG_DEBUG("Client %d disconnected\n", fd);
+    close(fd);
+
+    return SUCCESS;
 }
