@@ -62,7 +62,7 @@ main(int argc, char **argv) {
         }
     }
     time(&end);
-    printf("\nDone (%.2lfs)\n", (end - start) / 1e+6);
+    printf("\nDone (%.2lfs)\n", (end - start) / 1000.0f);
 
     // kill the server thread
     pthread_cancel(ctx.th);
@@ -113,7 +113,6 @@ server_thread(void *args) {
     int32_t state;
     int32_t ret = 0;
     ctx_t *ctx = NULL;
-    http_t http;
 
     ctx = (ctx_t *)args;
     pthread_mutex_lock(&ctx->mtx);
@@ -162,23 +161,23 @@ server_thread(void *args) {
                 }
 
                 LOG_DEBUG("Server received %d bytes\n", ret);
-                if (!(rc = http_parse_message(&http, (char *)data, ret))) {
+                if (!(rc = http_parse_message(&ctx->http, (char *)data, ret))) {
                     LOG_WARN("Failed to parse client data\n");
                 }
 
-                if (!http_fmt_response(&http, rc, ctx->sv.dirname)) {
+                if (!http_fmt_response(&ctx->http, rc, ctx->sv.dirname)) {
                     LOG_ERROR("Failed to format response\n");
                     break;
                 }
 
-                if (!server_send(&ctx->sv, fd, (void *)http.response.buf,
-                                 http.response.len)) {
+                if (!server_send(&ctx->sv, fd, (void *)ctx->http.response.buf,
+                                 ctx->http.response.len)) {
                     LOG_ERROR("Failed to send response\n");
                     break;
                 }
 
 
-                LOG_DEBUG("Sent %d bytes to client\n", http.response.len);
+                LOG_DEBUG("Sent %d bytes to client\n", ctx->http.response.len);
                 break;
             default:
                 return NULL;
