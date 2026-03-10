@@ -184,13 +184,11 @@ http_parse_message(http_t *http, char *data, int32_t len) {
                 state = PS_STATUS_VALUE;
                 break;
             case PS_STATUS_VALUE:
+                // XXX: does this string really need to be stored?
                 if (tok.type == TOK_CRLF) {
-                    state = PS_ERR;
-                    break;
+                    state = PS_HEADER_NAME;
                 }
 
-                // XXX: does this string really need to be stored?
-                state = PS_HEADER_NAME;
                 break;
             case PS_TARGET:
                 if (tok.type == TOK_CRLF) {

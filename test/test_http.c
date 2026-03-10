@@ -91,7 +91,7 @@ main(int argc, char **argv) {
             LOG_TRACE("HTTP type: %d\n", http.type);
             LOG_TRACE("HTTP status code: %d\n", http.rc);
             LOG_TRACE("HTTP method: %d\n", http.method);
-            LOG_TRACE("HTTP body: %s\n", http.body);
+            LOG_TRACE("HTTP body: %.*s\n", http.body.len, http.body.str);
         }
 
         if (http.rc != rqst->expect) {
