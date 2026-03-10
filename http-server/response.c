@@ -21,22 +21,20 @@ static const struct {
     { "css", "text/css" },
 };
 
-typedef int32_t (*response_callback_fn_t)(http_t *, const char *);
+typedef int32_t (*response_callback_fn_t)(const http_t *, http_t *, const char *);
 
 static int32_t
-http_fmt_400_response(http_t *http, const char *dirname);
+http_fmt_400_response(const http_t *rqst, http_t *rspn, const char *dirname);
 
 static int32_t
-http_fmt_404_response(http_t *http, const char *dirname);
+http_fmt_404_response(const http_t *rqst, http_t *rspn, const char *dirname);
 
 static int32_t
-http_fmt_GET_response(http_t *http, const char *dirname);
+http_fmt_GET_response(const http_t *rqst, http_t *rspn, const char *dirname);
 
 int32_t
-http_fmt_response(http_t *http, int32_t rc, const char *dirname) {
+http_fmt_response(const http_t *rqst, http_t *rspn, const char *dirname) {
     int ret = HTTP_OK;
-    request_t *rqst = NULL;
-    response_t *rspn = NULL;
     response_callback_fn_t callback_fn = NULL;
 
     // response callback table
@@ -48,24 +46,23 @@ http_fmt_response(http_t *http, int32_t rc, const char *dirname) {
         NULL,                       // RQST_DELETE
     };
     
-    rqst = &http->request;
-    rspn = &http->response;
+    memset(rspn, 0, sizeof(http_t));
 
-    memset(rspn, 0, sizeof(response_t));
-
-    if (!rc) {
-        (void)http_fmt_400_response(http, dirname);
-        return HTTP_OK;
+    switch (rqst->rc) {
+        case HTTP_RES_BAD_REQUEST:
+            (void)http_fmt_400_response(rqst, rspn, dirname);
+            return HTTP_OK;
+        default: break;
     }
 
     // format response based on the request method
     if ((callback_fn = HTTP_RESPONSE_CALLBACK[rqst->method]) != NULL
-            && !(ret = callback_fn(http, dirname))) {
+            && !(ret = callback_fn(rqst, rspn, dirname))) {
         LOG_INFO("Failed to format response\n");
     } 
 
     if (!callback_fn || !ret) {
-        if (!http_fmt_404_response(http, dirname)) {
+        if (!http_fmt_404_response(rqst, rspn, dirname)) {
             LOG_ERROR("Failed to format default response\n");
             return HTTP_ERR;
         }
@@ -85,12 +82,10 @@ http_date_now(char *buf, int32_t len) {
 }
 
 static int32_t
-http_fmt_404_response(http_t *http, const char *dirname) {
+http_fmt_404_response(const http_t *rqst, http_t *rspn, const char *dirname) {
     const char *body = NULL;
-    response_t *rspn = NULL;
 
     LOG_DEBUG("Creating default 404 response\n");
-    rspn = &http->response;
 
     body =
         "<html>\r\n"
@@ -111,18 +106,17 @@ http_fmt_404_response(http_t *http, const char *dirname) {
             body);
 
     LOG_TRACE("%s\n", rspn->buf);
-
     rspn->len = strlen(rspn->buf);
+    rspn->rc = HTTP_RES_NOT_FOUND;
+
     return HTTP_OK;
 }
 
 static int32_t
-http_fmt_400_response(http_t *http, const char *dirname) {
+http_fmt_400_response(const http_t *rqst, http_t *rspn, const char *dirname) {
     const char *body = NULL;
-    response_t *rspn = NULL;
 
     LOG_DEBUG("Creating default 400 response\n");
-    rspn = &http->response;
 
     body =
         "<html>\r\n"
@@ -142,16 +136,15 @@ http_fmt_400_response(http_t *http, const char *dirname) {
             strlen(body),
             body);
 
-
     rspn->len = strlen(rspn->buf);
+    rspn->rc = HTTP_RES_BAD_REQUEST;
+
     return HTTP_OK;
 }
 
 static int32_t
-http_fmt_GET_response(http_t *http, const char *dirname) {
-    request_t *rqst = NULL;
-    response_t *rspn = NULL;
-    header_t *hd = NULL;
+http_fmt_GET_response(const http_t *rqst, http_t *rspn, const char *dirname) {
+    const header_t *hd = NULL;
     char timestr[64];
     char fpath[FILENAME_MAX];
     char *p = NULL;
@@ -161,9 +154,6 @@ http_fmt_GET_response(http_t *http, const char *dirname) {
     int32_t size;
     int32_t fd = -1;
     int32_t offset;
-
-    rqst = &http->request;
-    rspn = &http->response;
 
     // TODO: should probably do something with these
     for (i = 0; i < rqst->nheaders; i++) {
@@ -190,7 +180,7 @@ http_fmt_GET_response(http_t *http, const char *dirname) {
                     dirname, DEFAULT_FILES[i]);
             if (file_exists(fpath) == HTTP_TRUE) {
                 if ((fd = file_open(fpath)) == -1) {
-                    return http_fmt_400_response(http, dirname);
+                    return http_fmt_400_response(rqst, rspn, dirname);
                 }
                 break;
             }
@@ -198,51 +188,52 @@ http_fmt_GET_response(http_t *http, const char *dirname) {
 
         if (len == i) {
             LOG_INFO("Could not find default file in directory `%s`\n", dirname);
-            return http_fmt_404_response(http, dirname);
+            return http_fmt_404_response(rqst, rspn, dirname);
         }
     } else {
         snprintf(fpath, sizeof(fpath), "%s%.*s",
                 dirname, rqst->target.len, rqst->target.str);
         if ((fd = file_open(fpath)) == -1) {
-            return http_fmt_404_response(http, dirname);
+            return http_fmt_404_response(rqst, rspn, dirname);
         }
     }
 
     if (!(size = file_size(fd))) {
         LOG_INFO("Could not determine file size\n");
-        return http_fmt_400_response(http, dirname);
+        return http_fmt_400_response(rqst, rspn, dirname);
     }
 
     if ((p = strchr(fpath, '.')) == NULL) {
         LOG_WARN("Unable to determine content type\n");
-        return http_fmt_400_response(http, dirname);
+        return http_fmt_400_response(rqst, rspn, dirname);
     }
 
     p++;
     type = NULL;
     for (i = 0; i < CONTENT_TYPE_MAX; i++) {
-        if (strcmp(CONTENT_TYPE_XREF[i].ext, p))
-            continue;
-
-        type = CONTENT_TYPE_XREF[i].type;
+        if (!strcmp(CONTENT_TYPE_XREF[i].ext, p)) {
+            type = CONTENT_TYPE_XREF[i].type;
+            break;
+        }
     }
 
     if (!type) {
         LOG_WARN("Unable to determine content type\n");
-        return http_fmt_400_response(http, dirname);
+        return http_fmt_400_response(rqst, rspn, dirname);
     }
 
     http_date_now(timestr, sizeof(timestr));
     snprintf(rspn->buf, sizeof(rspn->buf),
-             "HTTP/1.1 200 OK\n"
-             "Server: HTTP Server\n"
-             "Date: %s\n"
-             "Content-Type: %s\n"
-             "Content-Length: %d\n"
-             "\n",
+             "HTTP/1.1 200 OK\r\n"
+             "Server: HTTP Server\r\n"
+             "Date: %s\r\n"
+             "Content-Type: %s\r\n"
+             "Content-Length: %d\r\n"
+             "\r\n",
              timestr, type, size);
 
     rspn->len = strlen(rspn->buf);
+    rspn->rc = HTTP_RES_OK;
 
     if ((int)(sizeof(rspn->buf) - rspn->len) < size) {
         // TODO: stream the file to client

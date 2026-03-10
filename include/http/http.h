@@ -87,33 +87,23 @@ typedef struct _header {
     token_t     value;
 } header_t;
 
-typedef struct _request {
+typedef struct _http {
+    int32_t     rc;
+    int32_t     type;
     int32_t     method;
     token_t     target;
     token_t     version;
     int32_t     nheaders;
     header_t    headers[HEADER_MAX];
     token_t     body;
-} request_t;
-
-typedef struct _response {
-    int32_t     nheaders;
-    header_t    headers[HEADER_MAX];
-    token_t     body;
     int32_t     len;
     char        buf[8192];
-} response_t;
-
-typedef struct _http {
-    int32_t     type;
-    request_t   request;
-    response_t  response;
 } http_t;
 
 /**
   * Parses data from an HTTP message.
   *
-  * @param[in] http         a refernce to an http structure
+  * @param[in] http         a reference to an http structure
   * @param[in] data         the http packet data
   * @param[in] len          the length of the packet data
   *
@@ -125,14 +115,14 @@ http_parse_message(http_t *http, char *data, int32_t len);
 /**
   * Formats an HTTP response message.
   *
-  * @param[in] http         a refernce to an http structure
-  * @param[in] rc           the return code of the parser
+  * @param[in] rqst         a reference to the http request message
+  * @param[out] rspn        a reference to the http response message
   * @param[in] dirname      the file serving directory
   *
   * @return HTTP_OK on success or HTTP_ERR on failure
   */
 int32_t
-http_fmt_response(http_t *http, int32_t rc, const char *dirname);
+http_fmt_response(const http_t *rqst, http_t *rspn, const char *dirname);
 
 #ifdef __cplusplus
 }

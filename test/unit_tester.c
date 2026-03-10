@@ -62,7 +62,7 @@ main(int argc, char **argv) {
         }
     }
     time(&end);
-    printf("\nDone (%.2lfs)\n", (end - start) / 1000.0f);
+    printf("\nDone (%.3lfs)\n", (end - start) / 1000.0f);
 
     // kill the server thread
     pthread_cancel(ctx.th);
@@ -107,12 +107,13 @@ run_test(const char *pname, ctx_t *ctx) {
 static void *
 server_thread(void *args) {
     int fd;
-    int rc;
     int retry;
     uint8_t data[1024];
     int32_t state;
     int32_t ret = 0;
     ctx_t *ctx = NULL;
+    http_t rqst;
+    http_t rspn;
 
     ctx = (ctx_t *)args;
     pthread_mutex_lock(&ctx->mtx);
@@ -123,12 +124,12 @@ server_thread(void *args) {
     pthread_cond_signal(&ctx->cd);
     pthread_mutex_unlock(&ctx->mtx);
 
-    enum { SV_QUIT = 0, SV_DEAD, SV_IDLE, SV_ALIVE };
+    enum { SV_QUIT = 0, SV_DISCONNECT, SV_IDLE, SV_ACTIVE };
     state = SV_IDLE;
 
     while (1) {
         switch (state) {
-            case SV_DEAD:
+            case SV_DISCONNECT:
                 LOG_INFO("Client %d disconnected\n", fd);
                 close(fd);
                 state = SV_IDLE;
@@ -143,41 +144,39 @@ server_thread(void *args) {
                 LOG_INFO("Client %d connected\n", fd);
 
                 retry = 0;
-                state = SV_ALIVE;
+                state = SV_ACTIVE;
                 break;
-            case SV_ALIVE:
+            case SV_ACTIVE:
                 if ((ret = server_recv(
                                 &ctx->sv, fd, data, sizeof(data))) == -1) {
                     LOG_INFO("Server failed to receive message\n");
                     if (++retry > 3) {
                         LOG_INFO("Server exhausted retries\n");
-                        state = SV_DEAD;
+                        state = SV_DISCONNECT;
                     }
                     break;
                 } else if (ret == 0) {
                     LOG_DEBUG("Received 0 bytes, closing connection\n");
-                    state = SV_DEAD;
+                    state = SV_DISCONNECT;
                     break;
                 }
 
                 LOG_DEBUG("Server received %d bytes\n", ret);
-                if (!(rc = http_parse_message(&ctx->http, (char *)data, ret))) {
+                if (!(ret = http_parse_message(&rqst, (char *)data, ret))) {
                     LOG_WARN("Failed to parse client data\n");
                 }
 
-                if (!http_fmt_response(&ctx->http, rc, ctx->sv.dirname)) {
+                if (!http_fmt_response(&rqst, &rspn, ctx->sv.dirname)) {
                     LOG_ERROR("Failed to format response\n");
                     break;
                 }
 
-                if (!server_send(&ctx->sv, fd, (void *)ctx->http.response.buf,
-                                 ctx->http.response.len)) {
+                if (!server_send(&ctx->sv, fd, (void *)rspn.buf, rspn.len)) {
                     LOG_ERROR("Failed to send response\n");
                     break;
                 }
 
-
-                LOG_DEBUG("Sent %d bytes to client\n", ctx->http.response.len);
+                LOG_DEBUG("Sent %d bytes to client\n", rspn.len);
                 break;
             default:
                 return NULL;

@@ -26,7 +26,6 @@ typedef struct {
     int32_t     verbose;
     int32_t     port;
     server_t    server;
-    http_t      http;
 } ctx_t;
 
 static const char *errstr =
@@ -174,7 +173,8 @@ static int
 handle_client_connection(ctx_t *ctx, int fd) {
     int nread = 0;
     int rc;
-    http_t http;
+    http_t rqst;
+    http_t rspn;
     unsigned char data[8192];
 
     while (1) {
@@ -189,21 +189,21 @@ handle_client_connection(ctx_t *ctx, int fd) {
         }
 
         LOG_DEBUG("Received %d bytes from client %d\n", nread, fd);
-        if (!(rc = http_parse_message(&http, (char *)data, nread))) {
+        if (!(rc = http_parse_message(&rqst, (char *)data, nread))) {
             LOG_WARN("Failed to parse client request\n");
         }
 
-        if (!http_fmt_response(&http, rc, ctx->server.dirname)) {
+        if (!http_fmt_response(&rqst, &rspn, ctx->server.dirname)) {
             LOG_WARN("Failed for format client response\n");
             break;
         }
 
-        LOG_DEBUG("Sending %d bytes to client %d\n", http.response.len, fd);
+        LOG_DEBUG("Sending %d bytes to client %d\n", rqst.len, fd);
         if (!server_send(
                     &ctx->server,
                     fd,
-                    (void *)http.response.buf,
-                    http.response.len)) {
+                    (void *)rqst.buf,
+                    rqst.len)) {
             LOG_WARN("Failed to send client response\n");
             break;
         }

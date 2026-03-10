@@ -51,6 +51,15 @@ const keyword_t HTTP_KEYWORDS[KEYWORD_MAX] = {
 };
 
 static int32_t
+strntoi(const char *s, int32_t len) {
+    int ret = 0;
+    while (s && *s != '\0' && --len >= 0) {
+        ret = ((ret * 10) + (*s++ - '0'));
+    }
+    return ret;
+}
+
+static int32_t
 lexer_next(lexer_t *lx, token_t *tok) {
     char *p = NULL;
 
@@ -104,17 +113,19 @@ int32_t
 http_parse_message(http_t *http, char *data, int32_t len) {
     lexer_t lx;
     token_t tok;
+    int32_t ret;
     int32_t state;
     int32_t idx = 0;
     int32_t i;
     header_t *hd = NULL;
-    request_t *rqst = NULL;
     const keyword_t *keyword = NULL;
 
     enum _parser_state {
         PS_ERR = -1,
         PS_QUIT,
         PS_METHOD,
+        PS_STATUS_CODE,
+        PS_STATUS_VALUE,
         PS_TARGET,
         PS_VERSION,
         PS_HEADER_NAME,
@@ -126,8 +137,8 @@ http_parse_message(http_t *http, char *data, int32_t len) {
     lx = (lexer_t) { .buf = data, .len = len, .pos = 0 };
     state = PS_METHOD;
 
-    rqst = &http->request;
-    while (lexer_next(&lx, &tok) != HTTP_ERR) {
+    ret = HTTP_OK;
+    while (ret && lexer_next(&lx, &tok) != HTTP_ERR) {
         if (tok.type == TOK_SPACE)
             continue;
 
@@ -136,29 +147,50 @@ http_parse_message(http_t *http, char *data, int32_t len) {
 
         switch (state) {
             case PS_METHOD:
-                for (i = 0; i < KEYWORD_MAX; i++) {
-                    keyword = &HTTP_KEYWORDS[i];
-                    if (keyword->type != KW_REQUEST)
-                        continue;
+                if (!strncmp(tok.str, "HTTP/", 
+                            ((tok.len < (int)strlen("HTTP/")) 
+                             ? tok.len : (int)strlen("HTTP/")))) {
+                    http->type = MSG_RESPONSE;
+                    memcpy(&http->version, &tok, sizeof(token_t));
+                    state = PS_STATUS_CODE;
+                } else {
+                    for (i = 0; i < KEYWORD_MAX; i++) {
+                        keyword = &HTTP_KEYWORDS[i];
+                        if (keyword->type != KW_REQUEST)
+                            continue;
 
-                    if (!(tok.len - strlen(keyword->text))
-                            && !strncmp(tok.str, keyword->text, tok.len)) {
-                        switch (keyword->type) {
-                            case KW_REQUEST:
-                                http->type = MSG_REQUEST;
-                                rqst->method = keyword->method;
-                                break;
-                            case KW_RESPONSE:
-                                http->type = MSG_RESPONSE;
-                                break;
-                            default: break;
+                        if (!(tok.len - strlen(keyword->text))
+                                && !strncmp(tok.str, keyword->text, tok.len)) {
+                            switch (keyword->type) {
+                                case KW_REQUEST:
+                                    http->type = MSG_REQUEST;
+                                    http->method = keyword->method;
+                                    break;
+                                default: break;
+                            }
+                            break;
                         }
-                        break;
                     }
+                    state = ((i >= KEYWORD_MAX) ? PS_ERR : PS_TARGET);
+                }
+                break;
+            case PS_STATUS_CODE:
+                if (tok.type == TOK_CRLF) {
+                    state = PS_ERR;
+                    break;
                 }
 
-                // unable to determine if it's a request or response
-                state = ((i >= KEYWORD_MAX) ? PS_ERR : PS_TARGET);
+                http->rc = strntoi(tok.str, tok.len);
+                state = PS_STATUS_VALUE;
+                break;
+            case PS_STATUS_VALUE:
+                if (tok.type == TOK_CRLF) {
+                    state = PS_ERR;
+                    break;
+                }
+
+                // XXX: does this string really need to be stored?
+                state = PS_HEADER_NAME;
                 break;
             case PS_TARGET:
                 if (tok.type == TOK_CRLF) {
@@ -166,16 +198,16 @@ http_parse_message(http_t *http, char *data, int32_t len) {
                     break;
                 }
 
-                memcpy(&rqst->target, &tok, sizeof(token_t));
+                memcpy(&http->target, &tok, sizeof(token_t));
                 state = PS_VERSION;
                 break;
             case PS_VERSION:
                 if (tok.type == TOK_CRLF) {
-                    state = ((rqst->version.len > 0) ? PS_HEADER_NAME : PS_ERR);
+                    state = ((http->version.len > 0) ? PS_HEADER_NAME : PS_ERR);
                     break;
                 }
 
-                memcpy(&rqst->version, &tok, sizeof(token_t));
+                memcpy(&http->version, &tok, sizeof(token_t));
                 break;
             case PS_HEADER_NAME:
                 if (tok.type == TOK_CRLF) {
@@ -186,13 +218,13 @@ http_parse_message(http_t *http, char *data, int32_t len) {
                     break;
                 }
 
-                if ((idx = rqst->nheaders++) >= HEADER_MAX) {
+                if ((idx = http->nheaders++) >= HEADER_MAX) {
                     LOG_INFO("Header count exceeds maximum length %d\n", idx);
                     state = PS_ERR;
                     break;
                 }
 
-                hd = &rqst->headers[idx];
+                hd = &http->headers[idx];
                 memcpy(&hd->name, &tok, sizeof(token_t));
 
                 for (i = 0; i < KEYWORD_MAX; i++) {
@@ -230,47 +262,57 @@ http_parse_message(http_t *http, char *data, int32_t len) {
                     break;
                 }
 
-                if (!rqst->body.len) {
-                    memcpy(&rqst->body, &tok, sizeof(token_t));
+                if (!http->body.len) {
+                    memcpy(&http->body, &tok, sizeof(token_t));
                 } else {
-                    rqst->body.len += tok.len;
+                    http->body.len += tok.len;
                 }
 
                 break;
             case PS_ERR:
-                LOG_ERROR("Invalid HTTP request\n");
-                return HTTP_ERR;
+                ret = HTTP_ERR;
+                break;
             case PS_QUIT:
+                LOG_INFO("Parser breakout initiated\n");
+                ret = HTTP_ERR;
                 break;
             default:
                 LOG_ERROR("Unknown parser state `%d`\n", state);
-                return HTTP_ERR;
-        }
-    } // end switch
+                ret = HTTP_ERR;
+                break;
+        } // end switch
+    } // end while
 
 
     if (state == PS_ERR) {
-        LOG_ERROR("Invalid HTTP request\n");
+        if (http->type == MSG_REQUEST) {
+            http->rc = HTTP_RES_BAD_REQUEST;
+        }
+        LOG_ERROR("Invalid HTTP message format\n");
         return HTTP_ERR;
+    }
+
+    if (http->type == MSG_REQUEST) {
+        http->rc = HTTP_RES_OK;
     }
 
     switch (http->type) {
         case MSG_REQUEST:
             LOG_TRACE("HTTP info: %d %.*s %.*s %d\n",
-                    http->request.method,
-                    rqst->target.len, rqst->target.str,
-                    rqst->version.len, rqst->version.str,
-                    rqst->nheaders);
+                    http->method,
+                    http->target.len, http->target.str,
+                    http->version.len, http->version.str,
+                    http->nheaders);
 
-            for (i = 0; i < rqst->nheaders; i++) {
-                hd = &rqst->headers[i];
+            for (i = 0; i < http->nheaders; i++) {
+                hd = &http->headers[i];
                 LOG_TRACE("   %.*s: %.*s\n",
                         hd->name.len, hd->name.str, 
                         hd->value.len, hd->value.str);
             }
 
-            if (rqst->body.len && rqst->body.str) {
-                LOG_TRACE("HTTP body: %.*s\n", rqst->body.len, rqst->body.str);
+            if (http->body.len && http->body.str) {
+                LOG_TRACE("HTTP body: %.*s\n", http->body.len, http->body.str);
             }
 
             break;

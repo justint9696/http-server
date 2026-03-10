@@ -29,17 +29,16 @@ typedef struct _ctx {
     pthread_cond_t      cd;
     server_t            sv;
     client_t            cl;
-    http_t              http;
 } ctx_t;
 
-int
+static inline int
 log_init() {
     if (!logger_set_file(LOG_FILE, HTTP_TRUE)) {
         fprintf(stderr, "Error: Failed to create log file `%s`\n", LOG_FILE);
         return UT_ERR;
     }
 
-    logger_set_level(LL_NONE, LL_DEBUG);
+    logger_set_level(LL_NONE, LOG_LEVEL);
 
     return UT_OK;
 }
