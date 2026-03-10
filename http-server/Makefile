@@ -11,7 +11,7 @@ LDFLAGS = $(LIBDIRS) $(LDLIBS)
 SRCS = http-server/logger.c \
        http-server/server.c \
        http-server/client.c \
-       http-server/request.c \
+       http-server/parser.c \
        http-server/response.c \
        http-server/file_io.c
 
