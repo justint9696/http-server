@@ -36,8 +36,8 @@ _log_intern(int32_t level, const char *fmt, ...) {
     strftime(timestr, sizeof(timestr), "%M:%S", localtime(&ts));
 
     pid = getpid();
-    snprintf(text, sizeof(text), "[%s:%03ld][%d] ",
-            timestr, (tv.tv_usec / 1000), (int)pid);
+    snprintf(text, sizeof(text), "[%s.%03ld](%d) ",
+            timestr, (tv.tv_usec % 1000), (int)pid);
     len = strlen(text);
 
     va_start(args, fmt);
@@ -88,8 +88,8 @@ log_write(const char *fmt, ...) {
     strftime(timestr, sizeof(timestr), "%M:%S", localtime(&ts));
 
     pid = getpid();
-    snprintf(text, sizeof(text), "[%s:%03ld][%d] ",
-            timestr, (tv.tv_usec / 1000), (int)pid);
+    snprintf(text, sizeof(text), "[%s.%03ld](%d) ",
+            timestr, (tv.tv_usec % 1000), (int)pid);
     len = strlen(text);
 
     va_start(args, fmt);
