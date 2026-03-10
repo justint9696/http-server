@@ -2,6 +2,7 @@
 #include "unit_tester.h"
 
 int main(int argc, char **argv) {
+    int ret = UT_OK;
     int nread;
     int offset;
     int size;
@@ -20,6 +21,7 @@ int main(int argc, char **argv) {
 
     if (!(size = file_size(fd))) {
         LOG_ERROR("File is empty\n");
+        ret = UT_ERR;
         goto err;
     }
 
@@ -31,9 +33,14 @@ int main(int argc, char **argv) {
         offset += nread;
     }
 
+    if (nread < 0) {
+        ret = UT_ERR;
+        goto err;
+    }
+
 err:
     file_close(fd);
     logger_close_file();
 
-    return UT_SUCCESS;
+    return ((ret) ? UT_SUCCESS : UT_FAILURE);
 }
