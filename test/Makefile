@@ -10,7 +10,8 @@ LDFLAGS = $(LIBDIRS) $(LDDIRS) -Wl,-rpath=lib
 SRCS = test/test_logger.c \
        test/test_server.c \
        test/test_http.c \
-       test/test_file_io.c
+       test/test_file_io.c \
+       test/test_strntoi.c
 
 OBJS = $(patsubst %.c, build/%.o, test/unit_tester.c)
 DEPS = $(OBJS:.o=.d)
