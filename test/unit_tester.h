@@ -1,8 +1,6 @@
 #ifndef _UNIT_TESTER_H
 #define _UNIT_TESTER_H
 
-#include "http/client.h"
-#include "http/http.h"
 #include "http/logger.h"
 #include "http/server.h"
 #include "http/types.h"
@@ -28,7 +26,6 @@ typedef struct _ctx {
     pthread_mutex_t     mtx;
     pthread_cond_t      cd;
     server_t            sv;
-    client_t            cl;
 } ctx_t;
 
 static inline int

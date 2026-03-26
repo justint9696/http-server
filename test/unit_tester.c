@@ -1,5 +1,7 @@
 #include "unit_tester.h"
 
+#include "http/http.h"
+
 #include <libgen.h>
 #include <stdio.h>
 #include <stdlib.h>

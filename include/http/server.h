@@ -1,20 +1,19 @@
 #ifndef _HTTP_SERVER_H
 #define _HTTP_SERVER_H
 
-#include <stdint.h>
+#include "http/socket.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
 
 typedef struct _server {
-    int32_t     sockfd;
-    int32_t     port;
+    socket_t    socket;
     char        dirname[1024];
 } server_t;
 
 int32_t
-server_init(server_t *sv, int32_t port, const char *dirname);
+server_init(server_t *sv, int32_t portno, const char *dirname);
 
 int32_t
 server_destroy(server_t *sv);

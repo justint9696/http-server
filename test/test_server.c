@@ -6,7 +6,7 @@ int
 main(int argc, char **argv) {
     int ret = UT_OK;
     int rc;
-    client_t cl;
+    socket_t sck;
     uint8_t data[1024];
     int32_t len;
 
@@ -15,7 +15,7 @@ main(int argc, char **argv) {
         return UT_FAILURE;
     }
 
-    if (rc && !(rc = client_init(&cl, SERVER_PORT))) {
+    if (rc && !(rc = socket_connect(&sck, NULL, SERVER_PORT))) {
         LOG_ERROR("Failed to initialize client\n");
         ret = UT_ERR;
     } else {
@@ -28,13 +28,13 @@ main(int argc, char **argv) {
 
     if (rc) {
         LOG_DEBUG("Sending `%s` to server\n", (char *)data);
-        if (!(rc = client_send(&cl, data, len))) {
+        if (!(rc = socket_send(&sck, data, len))) {
             LOG_WARN("Failed to send packet\n");
             ret = UT_ERR;
         }
     }
 
-    client_destroy(&cl);
+    socket_close(&sck);
     logger_close_file();
 
     return ((ret) ? UT_SUCCESS : UT_FAILURE);

@@ -46,7 +46,7 @@ main(int argc, char **argv) {
     int32_t i;
     const __typeof__(*RQST_TBL) *rqst = NULL;
     char data[2048];
-    client_t cl;
+    socket_t sck;
     http_t http;
 
     if (!log_init()) {
@@ -54,9 +54,7 @@ main(int argc, char **argv) {
         return UT_FAILURE;
     }
 
-    memset(&cl, 0, sizeof(cl));
-    memset(&http, 0, sizeof(http));
-    if (!(rc = client_init(&cl, SERVER_PORT))) {
+    if (!(rc = socket_connect(&sck, NULL, SERVER_PORT))) {
         LOG_ERROR("Failed to initialize client\n");
         ret = UT_ERR;
     }
@@ -66,15 +64,15 @@ main(int argc, char **argv) {
 
         LOG_DEBUG("Sending HTTP request %d\n", (i+1));
         LOG_TRACE("%s\n", rqst->message);
-        if (rc && !(rc = client_send(
-                        &cl, rqst->message, strlen(rqst->message)))) {
+        if (rc && !(rc = socket_send(
+                        &sck, rqst->message, strlen(rqst->message)))) {
             LOG_ERROR("Failed to send packet\n");
             ret = UT_ERR;
             break;
         }
 
         LOG_DEBUG("Waiting for server response\n");
-        if (rc && (rc = client_recv(&cl, data, sizeof(data))) == -1) {
+        if (rc && (rc = socket_recv(&sck, data, sizeof(data))) == -1) {
             LOG_ERROR("Client failed to receive server response\n");
             ret = UT_ERR;
             break;
@@ -82,6 +80,8 @@ main(int argc, char **argv) {
 
         LOG_DEBUG("Client received %d bytes from server\n", rc);
         LOG_TRACE("%s\n", data);
+
+        memset(&http, 0, sizeof(http));
         if (!(rc = http_parse_message(&http, data, rc))) {
             LOG_ERROR("Failed to parse HTTP message\n");
             ret = UT_ERR;
@@ -102,7 +102,7 @@ main(int argc, char **argv) {
         }
     }
 
-    client_destroy(&cl);
+    socket_close(&sck);
     logger_close_file();
 
     return ((ret) ? UT_SUCCESS : UT_FAILURE);

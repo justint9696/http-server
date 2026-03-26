@@ -198,12 +198,13 @@ handle_client_connection(ctx_t *ctx, int fd) {
             break;
         }
 
-        LOG_DEBUG("Sending %d bytes to client %d\n", rqst.len, fd);
+        LOG_DEBUG("Sending %d bytes to client %d\n", rspn.len, fd);
+        LOG_TRACE("%s\n", rspn.buf);
         if (!server_send(
                     &ctx->server,
                     fd,
-                    (void *)rqst.buf,
-                    rqst.len)) {
+                    (void *)rspn.buf,
+                    rspn.len)) {
             LOG_WARN("Failed to send client response\n");
             break;
         }
